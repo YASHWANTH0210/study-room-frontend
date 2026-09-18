@@ -53,7 +53,7 @@
                         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     };
                     socket.emit('send_message', messageData);
-                    setChatList((list) => [...list, messageData]);
+                    // REMOVED the local setChatList line here so it doesn't double-render!
                     setMessage('');
                 }
             };
