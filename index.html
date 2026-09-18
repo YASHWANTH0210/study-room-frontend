@@ -57,13 +57,12 @@
                     setMessage('');
                 }
             };
-const handleNoteChange = (e) => {
-                const text = e.target.value;
-                setNoteText(text);
-                // Send just the raw text string, not an object!
-                socket.emit('update_note', { roomCode, text });
-            };
-              
+            const handleNoteChange = (e) => {
+    const text = e.target.value;
+    setNoteText(text);
+    // Send an object containing both roomCode and the plain text string
+    socket.emit('update_note', { roomCode, text });
+};
             if (!isInRoom) {
                 return (
                     <div className="flex flex-col items-center justify-center h-screen">
