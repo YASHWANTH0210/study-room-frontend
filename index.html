@@ -8,6 +8,8 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <!-- SimplePeer for WebRTC voice chat -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="font-sans">
@@ -28,6 +30,13 @@
             const [timeLeft, setTimeLeft] = React.useState(1500);
             const [darkMode, setDarkMode] = React.useState(false);
             const [activeUsers, setActiveUsers] = React.useState([]);
+            
+            // Voice Chat States
+            const [isInVoice, setIsInVoice] = React.useState(false);
+            const [isMuted, setIsMuted] = React.useState(false);
+            const localStreamRef = React.useRef(null);
+            const peersRef = React.useRef([]);
+            const audioContainerRef = React.useRef(null);
 
             React.useEffect(() => {
                 socket.on('receive_message', (data) => {
@@ -63,6 +72,105 @@
                     setErrorMessage(msg);
                 });
             }, []);
+
+            // --- Voice Chat Logic ---
+            const toggleVoiceChat = async () => {
+                if (!isInVoice) {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+                        localStreamRef.current = stream;
+                        setIsInVoice(true);
+                        socket.emit('join_voice', roomCode);
+
+                        socket.on('user_joined_voice', (incomingId) => {
+                            const peer = createPeer(incomingId, socket.id, stream);
+                            peersRef.current.push({ peerId: incomingId, peer });
+                        });
+
+                        socket.on('signal', (data) => {
+                            const item = peersRef.current.find(p => p.peerId === data.from);
+                            if (item) {
+                                item.peer.signal(data.signal);
+                            } else {
+                                const peer = addPeer(data.signal, data.from, stream);
+                                peersRef.current.push({ peerId: data.from, peer });
+                            }
+                        });
+
+                        socket.on('user_left_voice', (id) => {
+                            const item = peersRef.current.find(p => p.peerId === id);
+                            if (item) {
+                                item.peer.destroy();
+                                peersRef.current = peersRef.current.filter(p => p.peerId !== id);
+                            }
+                        });
+                    } catch (err) {
+                        alert('Could not access microphone. Check browser permissions.');
+                    }
+                } else {
+                    // Leave Voice
+                    if (localStreamRef.current) {
+                        localStreamRef.current.getTracks().forEach(track => track.stop());
+                    }
+                    peersRef.current.forEach(p => p.peer.destroy());
+                    peersRef.current = [];
+                    setIsInVoice(false);
+                    socket.emit('leave_voice', roomCode);
+                }
+            };
+
+            const createPeer = (userToSignal, callerId, stream) => {
+                const peer = new SimplePeer({
+                    initiator: true,
+                    trickle: false,
+                    stream: stream,
+                });
+
+                peer.on('signal', (signal) => {
+                    socket.emit('signal', { userToSignal, signal, to: userToSignal });
+                });
+
+                peer.on('stream', (remoteStream) => {
+                    playRemoteAudio(remoteStream);
+                });
+
+                return peer;
+            };
+
+            const addPeer = (incomingSignal, callerId, stream) => {
+                const peer = new SimplePeer({
+                    initiator: false,
+                    trickle: false,
+                    stream: stream,
+                });
+
+                peer.on('signal', (signal) => {
+                    socket.emit('signal', { userToSignal: callerId, signal, to: callerId });
+                });
+
+                peer.on('stream', (remoteStream) => {
+                    playRemoteAudio(remoteStream);
+                });
+
+                peer.signal(incomingSignal);
+                return peer;
+            };
+
+            const playRemoteAudio = (stream) => {
+                const audio = document.createElement('audio');
+                audio.srcObject = stream;
+                audio.autoplay = true;
+                document.body.appendChild(audio);
+            };
+
+            const toggleMute = () => {
+                if (localStreamRef.current) {
+                    const audioTrack = localStreamRef.current.getAudioTracks()[0];
+                    audioTrack.enabled = !audioTrack.enabled;
+                    setIsMuted(!isMuted);
+                }
+            };
+            // ------------------------
 
             const joinRoom = () => {
                 if (username !== '' && roomCode !== '') {
@@ -230,8 +338,31 @@
                         </form>
                     </div>
 
-                    {/* Right Column: Timer & Shared Notes */}
+                    {/* Right Column: Voice Chat, Timer & Shared Notes */}
                     <div className={`flex-1 flex flex-col p-4 gap-4 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+                        
+                        {/* Voice Chat Control Widget */}
+                        <div className={`p-4 rounded-lg shadow-md flex items-center justify-between border ${darkMode ? 'bg-gray-800 border-purple-900' : 'bg-purple-50 border-purple-200'}`}>
+                            <div>
+                                <h3 className={`font-bold text-md ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>🎙️ Discord-Style Voice Channel</h3>
+                                <p className="text-xs text-gray-400">{isInVoice ? 'Connected to voice room' : 'Voice is currently disconnected'}</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={toggleVoiceChat} 
+                                    className={`px-3 py-1 rounded text-sm font-semibold text-white ${isInVoice ? 'bg-red-500 hover:bg-red-600' : 'bg-purple-600 hover:bg-purple-700'}`}>
+                                    {isInVoice ? 'Leave Voice' : 'Join Voice'}
+                                </button>
+                                {isInVoice && (
+                                    <button 
+                                        onClick={toggleMute} 
+                                        className={`px-3 py-1 rounded text-sm font-semibold text-white ${isMuted ? 'bg-amber-600 hover:bg-amber-700' : 'bg-gray-600 hover:bg-gray-700'}`}>
+                                        {isMuted ? 'Unmute' : 'Mute'}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
                         {/* Pomodoro Timer Widget */}
                         <div className={`p-4 rounded-lg shadow-md flex items-center justify-between ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                             <div>
