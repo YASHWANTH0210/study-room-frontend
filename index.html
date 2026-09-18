@@ -19,6 +19,8 @@
         function App() {
             const [username, setUsername] = React.useState('');
             const [roomCode, setRoomCode] = React.useState('');
+            const [roomPassword, setRoomPassword] = React.useState('');
+            const [errorMessage, setErrorMessage] = React.useState('');
             const [isInRoom, setIsInRoom] = React.useState(false);
             const [message, setMessage] = React.useState('');
             const [chatList, setChatList] = React.useState([]);
@@ -47,12 +49,22 @@
                 socket.on('update_users', (users) => {
                     setActiveUsers(users);
                 });
+
+                socket.on('auth_success', () => {
+                    setIsInRoom(true);
+                    setErrorMessage('');
+                });
+
+                socket.on('auth_error', (msg) => {
+                    setErrorMessage(msg);
+                });
             }, []);
 
             const joinRoom = () => {
                 if (username !== '' && roomCode !== '') {
-                    socket.emit('join_room', { username, roomCode });
-                    setIsInRoom(true);
+                    socket.emit('join_room', { username, roomCode, password: roomPassword });
+                } else {
+                    setErrorMessage('Please fill in your name and room code.');
                 }
             };
 
@@ -95,6 +107,13 @@
                                     {darkMode ? '☀️ Light' : '🌙 Dark'}
                                 </button>
                             </div>
+
+                            {errorMessage && (
+                                <div className="mb-3 p-2 bg-red-100 text-red-700 text-xs rounded border border-red-300">
+                                    {errorMessage}
+                                </div>
+                            )}
+
                             <input
                                 type="text"
                                 placeholder="Your Name..."
@@ -104,8 +123,14 @@
                             <input
                                 type="text"
                                 placeholder="Room Code (e.g. 123)..."
-                                className={`border p-2 mb-4 w-full rounded ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
+                                className={`border p-2 mb-3 w-full rounded ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
                                 onChange={(e) => setRoomCode(e.target.value)}
+                            /><br/>
+                            <input
+                                type="password"
+                                placeholder="Room Password..."
+                                className={`border p-2 mb-4 w-full rounded ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
+                                onChange={(e) => setRoomPassword(e.target.value)}
                             /><br/>
                             <button 
                                 onClick={joinRoom} 
