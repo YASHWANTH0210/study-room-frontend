@@ -25,6 +25,7 @@
             const [noteText, setNoteText] = React.useState('');
             const [timeLeft, setTimeLeft] = React.useState(1500);
             const [darkMode, setDarkMode] = React.useState(false);
+            const [activeUsers, setActiveUsers] = React.useState([]);
 
             React.useEffect(() => {
                 socket.on('receive_message', (data) => {
@@ -41,6 +42,10 @@
 
                 socket.on('timer_update', (time) => {
                     setTimeLeft(time);
+                });
+
+                socket.on('update_users', (users) => {
+                    setActiveUsers(users);
                 });
             }, []);
 
@@ -114,7 +119,7 @@
 
             return (
                 <div className={`flex h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-                    {/* Left Column: Chat */}
+                    {/* Left Column: Chat & Online Users */}
                     <div className={`w-1/3 border-r flex flex-col p-4 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>
                         <div className="flex justify-between items-center mb-2">
                             <h3 className="font-bold text-sm">Room: {roomCode} | {username}</h3>
@@ -124,6 +129,18 @@
                                 {darkMode ? '☀️' : '🌙'}
                             </button>
                         </div>
+
+                        {/* Active Users Badge Box */}
+                        <div className={`mb-3 p-2 rounded border text-xs ${darkMode ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-blue-50 border-blue-100 text-blue-800'}`}>
+                            <span className="font-bold">Online ({activeUsers.length}): </span>
+                            {activeUsers.map((u, i) => (
+                                <span key={u.id} className="inline-block bg-blue-500 text-white px-1.5 py-0.5 rounded-full text-[10px] mr-1 my-0.5">
+                                    {u.username}
+                                </span>
+                            ))}
+                        </div>
+
+                        {/* Chat Messages */}
                         <div className={`flex-1 border overflow-y-auto p-3 mb-3 rounded ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                             {chatList.map((item, index) => (
                                 <div key={index} className="mb-2">
