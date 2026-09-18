@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Study Room</title>
+    <!-- React and Socket.io CDN scripts -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Connect to your live Render backend
+        const socket = io('https://study-room-backend-syn8.onrender.com');
+
+        function App() {
+            const [username, setUsername] = React.useState('');
+            const [roomCode, setRoomCode] = React.useState('');
+            const [isInRoom, setIsInRoom] = React.useState(false);
+            const [message, setMessage] = React.useState('');
+            const [chatList, setChatList] = React.useState([]);
+            const [noteText, setNoteText] = React.useState('');
+
+            React.useEffect(() => {
+                socket.on('receive_message', (data) => {
+                    setChatList((list) => [...list, data]);
+                });
+
+                socket.on('receive_note', (data) => {
+                    setNoteText(data);
+                });
+            }, []);
+
+            const joinRoom = () => {
+                if (username !== '' && roomCode !== '') {
+                    socket.emit('join_room', { username, roomCode });
+                    setIsInRoom(true);
+                }
+            };
+
+            const sendMessage = (e) => {
+                e.preventDefault();
+                if (message !== '') {
+                    const messageData = {
+                        roomCode,
+                        username,
+                        message,
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    };
+                    socket.emit('send_message', messageData);
+                    setChatList((list) => [...list, messageData]);
+                    setMessage('');
+                }
+            };
+
+            const handleNoteChange = (e) => {
+                const text = e.target.value;
+                setNoteText(text);
+                socket.emit('update_note', { roomCode, text });
+            };
+
+            if (!isInRoom) {
+                return (
+                    <div className="flex flex-col items-center justify-center h-screen">
+                        <div className="bg-white p-8 rounded-lg shadow-md text-center">
+                            <h2 className="text-2xl font-bold mb-4 text-blue-600">Join a Study Room</h2>
+                            <input
+                                type="text"
+                                placeholder="Your Name..."
+                                className="border p-2 mb-3 w-full rounded"
+                                onChange={(e) => setUsername(e.target.value)}
+                            /><br/>
+                            <input
+                                type="text"
+                                placeholder="Room Code (e.g. 123)..."
+                                className="border p-2 mb-4 w-full rounded"
+                                onChange={(e) => setRoomCode(e.target.value)}
+                            /><br/>
+                            <button 
+                                onClick={joinRoom} 
+                                className="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">
+                                Join Room
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="flex h-screen">
+                    <div className="flex-1 border-r border-gray-300 flex flex-col p-4 bg-white">
+                        <h3 className="font-bold text-lg mb-2">Room: {roomCode} | User: {username}</h3>
+                        <div className="flex-1 border border-gray-200 overflow-y-auto p-3 mb-3 rounded bg-gray-50">
+                            {chatList.map((item, index) => (
+                                <div key={index} className="mb-2">
+                                    <span className="font-bold text-blue-600">{item.username}</span> 
+                                    <span className="text-xs text-gray-400 ml-2">{item.time}</span>
+                                    <p className="text-gray-700">{item.message}</p>
+                                </div>
+                            ))}
+                        </div>
+                        <form onSubmit={sendMessage} className="flex gap-2">
+                            <input
+                                type="text"
+                                value={message}
+                                placeholder="Type a message..."
+                                className="border flex-1 p-2 rounded"
+                                onChange={(e) => setMessage(e.target.value)}
+                            />
+                            <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">Send</button>
+                        </form>
+                    </div>
+
+                    <div className="flex-1 flex flex-col p-4 bg-gray-50">
+                        <h3 className="font-bold text-lg mb-2">Shared Workspace / Notes</h3>
+                        <textarea
+                            value={noteText}
+                            onChange={handleNoteChange}
+                            placeholder="Type notes here. Everyone in room will see live updates!"
+                            className="flex-1 border p-4 rounded resize-none focus:outline-none"
+                        />
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
