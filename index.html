@@ -107,7 +107,7 @@
             // Screen Sharing Logic
             const toggleScreenShare = async () => {
                 if (isMobile) {
-                    alert('Mobile browsers restrict screen broadcasting. You can still view screens shared by PC users!');
+                    alert('Mobile browsers restrict screen sharing.');
                     return;
                 }
 
@@ -552,9 +552,9 @@
                     {/* Right Column: Voice, Screen Share, Timer & Toggleable Workspace */}
                     <div className={`w-full lg:flex-1 flex flex-col p-4 gap-4 overflow-y-auto h-auto lg:h-full ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
                         
-                        {/* Remote Screen Share Video Streams Container (Optimized for Mobile & PC) */}
-                        {remoteScreenStreams.length > 0 && (
-                            <div className="flex flex-col gap-2 p-2 bg-black rounded-lg border border-gray-700 my-2">
+                        {/* Remote Screen Share Streams - Completely hidden on mobile devices via hidden class */}
+                        {remoteScreenStreams.length > 0 && !isMobile && (
+                            <div className="hidden lg:flex flex-col gap-2 p-2 bg-black rounded-lg border border-gray-700 my-2">
                                 <span className="text-xs text-white font-bold px-1">🖥️ Shared Screens ({remoteScreenStreams.length}):</span>
                                 {remoteScreenStreams.map((item, idx) => (
                                     <div key={idx} className="relative w-full bg-gray-950 rounded overflow-hidden border border-gray-800" style={{ minHeight: '220px' }}>
@@ -578,12 +578,12 @@
                             </div>
                         )}
 
-                        {/* Voice & Screen Share Control Widget */}
+                        {/* Voice & Screen Share Control Widget (Hidden Share Button on Mobile) */}
                         <div className={`p-3 rounded-lg shadow-md flex flex-col sm:flex-row items-center justify-between gap-3 border ${darkMode ? 'bg-gray-800 border-purple-900' : 'bg-purple-50 border-purple-200'}`}>
                             <div>
-                                <h3 className={`font-bold text-sm ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>🎙️ Voice & Tools</h3>
+                                <h3 className={`font-bold text-sm ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>🎙️ Voice Chat</h3>
                                 <p className="text-[11px] text-gray-400">
-                                    {isInVoice ? 'Voice Connected' : 'Voice Disconnected'} {isMobile ? '(Mobile View)' : ''}
+                                    {isInVoice ? 'Voice Connected' : 'Voice Disconnected'}
                                 </p>
                             </div>
                             <div className="flex flex-wrap gap-2">
@@ -599,11 +599,13 @@
                                         {isMuted ? 'Unmute' : 'Mute'}
                                     </button>
                                 )}
-                                <button 
-                                    onClick={toggleScreenShare} 
-                                    className={`px-2.5 py-1 rounded text-xs font-semibold text-white ${isSharingScreen ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                                    {isSharingScreen ? 'Stop Sharing' : 'Share Screen'}
-                                </button>
+                                {!isMobile && (
+                                    <button 
+                                        onClick={toggleScreenShare} 
+                                        className={`px-2.5 py-1 rounded text-xs font-semibold text-white ${isSharingScreen ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                                        {isSharingScreen ? 'Stop Sharing' : 'Share Screen'}
+                                    </button>
+                                )}
                             </div>
                         </div>
 
