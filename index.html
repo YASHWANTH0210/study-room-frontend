@@ -30,7 +30,6 @@
             const [darkMode, setDarkMode] = React.useState(false);
             const [activeUsers, setActiveUsers] = React.useState([]);
             
-            // Mobile Detection
             const [isMobile, setIsMobile] = React.useState(false);
 
             React.useEffect(() => {
@@ -40,7 +39,6 @@
                 checkMobile();
             }, []);
             
-            // Right Panel Tab Switcher ('notes' or 'whiteboard')
             const [activeTab, setActiveTab] = React.useState('notes');
 
             // Voice Chat States
@@ -49,7 +47,7 @@
             const localStreamRef = React.useRef(null);
             const peersRef = React.useRef([]);
 
-            // Screen Sharing States (Desktop Only)
+            // Screen Sharing States (Now Enabled for Mobile too!)
             const [isSharingScreen, setIsSharingScreen] = React.useState(false);
             const screenStreamRef = React.useRef(null);
             const screenPeersRef = React.useRef([]);
@@ -96,7 +94,6 @@
                     setErrorMessage(msg);
                 });
 
-                // Whiteboard listeners
                 socket.on('receive_drawing', (data) => {
                     drawLine(data.x0, data.y0, data.x1, data.y1, data.color, data.size, false);
                 });
@@ -106,15 +103,11 @@
                 });
             }, []);
 
-            // Screen Sharing Logic (Safe Guarded for Desktop)
+            // Screen Sharing Logic (Allowed on Mobile & Desktop)
             const toggleScreenShare = async () => {
-                if (isMobile) {
-                    alert('Screen sharing is only supported on desktop web browsers.');
-                    return;
-                }
-
                 if (!isSharingScreen) {
                     try {
+                        // navigator.mediaDevices.getDisplayMedia works on modern mobile browsers too
                         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
                         screenStreamRef.current = stream;
                         setIsSharingScreen(true);
@@ -149,6 +142,7 @@
                         });
                     } catch (err) {
                         console.error('Error sharing screen:', err);
+                        alert('Screen sharing permission denied or unsupported by this mobile browser version.');
                     }
                 } else {
                     stopScreenShare();
@@ -214,7 +208,7 @@
                 return peer;
             };
 
-            // Whiteboard Drawing Logic (Supports Mouse & Touch)
+            // Whiteboard Drawing Logic
             const getPos = (e) => {
                 const canvas = canvasRef.current;
                 if (!canvas) return { x: 0, y: 0 };
@@ -479,7 +473,7 @@
             return (
                 <div className={`flex flex-col lg:flex-row h-screen overflow-y-auto lg:overflow-hidden ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
                     
-                    {/* Left Column: Chat & Online Users (Responsive width) */}
+                    {/* Left Column: Chat & Online Users */}
                     <div className={`w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r flex flex-col p-4 h-[50vh] lg:h-full ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>
                         <div className="flex justify-between items-center mb-2">
                             <h3 className="font-bold text-sm truncate">Room: {roomCode} | {username}</h3>
@@ -573,12 +567,12 @@
                             </div>
                         )}
 
-                        {/* Voice & Screen Share Control Widget */}
+                        {/* Voice & Screen Share Control Widget (Now active for mobile too!) */}
                         <div className={`p-3 rounded-lg shadow-md flex flex-col sm:flex-row items-center justify-between gap-3 border ${darkMode ? 'bg-gray-800 border-purple-900' : 'bg-purple-50 border-purple-200'}`}>
                             <div>
                                 <h3 className={`font-bold text-sm ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>🎙️ Voice & Tools</h3>
                                 <p className="text-[11px] text-gray-400">
-                                    {isInVoice ? 'Voice Connected' : 'Voice Disconnected'} {isMobile ? '(Mobile)' : ''}
+                                    {isInVoice ? 'Voice Connected' : 'Voice Disconnected'}
                                 </p>
                             </div>
                             <div className="flex flex-wrap gap-2">
@@ -594,13 +588,11 @@
                                         {isMuted ? 'Unmute' : 'Mute'}
                                     </button>
                                 )}
-                                {!isMobile && (
-                                    <button 
-                                        onClick={toggleScreenShare} 
-                                        className={`px-2.5 py-1 rounded text-xs font-semibold text-white ${isSharingScreen ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                                        {isSharingScreen ? 'Stop Sharing' : 'Share Screen'}
-                                    </button>
-                                )}
+                                <button 
+                                    onClick={toggleScreenShare} 
+                                    className={`px-2.5 py-1 rounded text-xs font-semibold text-white ${isSharingScreen ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                                    {isSharingScreen ? 'Stop Sharing' : 'Share Screen'}
+                                </button>
                             </div>
                         </div>
 
@@ -657,7 +649,7 @@
                             )}
                         </div>
 
-                        {/* Workspace Body (Tab Content) */}
+                        {/* Workspace Body */}
                         <div className={`flex-1 flex flex-col p-4 rounded-lg shadow-md relative overflow-hidden min-h-[300px] ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                             {activeTab === 'notes' ? (
                                 <textarea
