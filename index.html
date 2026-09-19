@@ -21,8 +21,18 @@
             const [username, setUsername] = React.useState('');
             const [roomCode, setRoomCode] = React.useState('');
             const [roomPassword, setRoomPassword] = React.useState('');
+            
+            // New Room Creation Customization States
+            const [roomDuration, setRoomDuration] = React.useState('60'); // default 60 mins
+            const [roomTopic, setRoomTopic] = React.useState('');
+            const [roomRules, setRoomRules] = React.useState('');
+
             const [errorMessage, setErrorMessage] = React.useState('');
             const [isInRoom, setIsInRoom] = React.useState(false);
+            
+            // Home page mode state: 'home', 'join', or 'create'
+            const [homeMode, setHomeMode] = React.useState('home');
+
             const [message, setMessage] = React.useState('');
             const [chatList, setChatList] = React.useState([]);
             const [noteText, setNoteText] = React.useState('');
@@ -40,7 +50,6 @@
                 checkMobile();
             }, []);
             
-            // Section Navigation State ('workspace', 'chat', 'tools')
             const [activeSection, setActiveSection] = React.useState('workspace');
             const [workspaceTab, setWorkspaceTab] = React.useState('notes');
 
@@ -105,6 +114,12 @@
                     clearCanvasLocally();
                 });
             }, []);
+
+            // Generate a random room code for creating a room
+            const generateRoomCode = () => {
+                const randomCode = Math.floor(100000 + Math.random() * 900000).toString();
+                setRoomCode(randomCode);
+            };
 
             // Screen Sharing Logic
             const toggleScreenShare = async () => {
@@ -374,9 +389,16 @@
                 }
             };
 
-            const joinRoom = () => {
+            const enterRoomAction = () => {
                 if (username !== '' && roomCode !== '') {
-                    socket.emit('join_room', { username, roomCode, password: roomPassword });
+                    socket.emit('join_room', { 
+                        username, 
+                        roomCode, 
+                        password: roomPassword,
+                        duration: roomDuration,
+                        topic: roomTopic,
+                        rules: roomRules
+                    });
                 } else {
                     setErrorMessage('Please fill in your name and room code.');
                 }
@@ -429,64 +451,205 @@
                 return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
             };
 
+            // HOMEPAGE VIEW (When not in a room yet)
             if (!isInRoom) {
                 return (
-                    <div className={`flex flex-col items-center justify-center h-screen px-4 ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-                        <div className={`p-8 rounded-lg shadow-md text-center w-full max-w-sm ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                    <div className={`flex flex-col items-center justify-center min-h-screen py-6 px-4 ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                        <div className={`p-6 sm:p-8 rounded-xl shadow-lg text-center w-full max-w-md ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                            
+                            {/* Theme Toggle Top Bar */}
                             <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-2xl font-bold text-blue-500">Join Room</h2>
+                                <h1 className="text-xl font-extrabold text-blue-500">📚 Virtual Study Room</h1>
                                 <button 
                                     onClick={() => setDarkMode(!darkMode)}
-                                    className="text-xs px-2 py-1 rounded border border-gray-500 hover:bg-gray-700">
+                                    className="text-xs px-2.5 py-1.5 rounded border border-gray-500 hover:opacity-80">
                                     {darkMode ? '☀️ Light' : '🌙 Dark'}
                                 </button>
                             </div>
 
                             {errorMessage && (
-                                <div className="mb-3 p-2 bg-red-100 text-red-700 text-xs rounded border border-red-300">
+                                <div className="mb-4 p-2.5 bg-red-100 text-red-700 text-xs rounded border border-red-300">
                                     {errorMessage}
                                 </div>
                             )}
 
-                            <input
-                                type="text"
-                                placeholder="Your Name..."
-                                className={`border p-2 mb-3 w-full rounded ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
-                                onChange={(e) => setUsername(e.target.value)}
-                            /><br/>
-                            <input
-                                type="text"
-                                placeholder="Room Code (e.g. 123)..."
-                                className={`border p-2 mb-3 w-full rounded ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
-                                onChange={(e) => setRoomCode(e.target.value)}
-                            /><br/>
-                            <input
-                                type="password"
-                                placeholder="Room Password (Optional)..."
-                                className={`border p-2 mb-4 w-full rounded ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
-                                onChange={(e) => setRoomPassword(e.target.value)}
-                            /><br/>
-                            <button 
-                                onClick={joinRoom} 
-                                className="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600 font-semibold">
-                                Enter Study Room
-                            </button>
+                            {/* MAIN HOME SELECTION VIEW */}
+                            {homeMode === 'home' && (
+                                <div className="flex flex-col gap-4 py-4">
+                                    <p className="text-sm text-gray-400 mb-2">Collaborate, share notes, draw, and study together in real-time.</p>
+                                    <button 
+                                        onClick={() => setHomeMode('create')} 
+                                        className="bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 shadow transition-all">
+                                        ✨ Create a New Room
+                                    </button>
+                                    <button 
+                                        onClick={() => setHomeMode('join')} 
+                                        className={`p-3 rounded-lg font-bold border transition-all ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-50'}`}>
+                                        🚪 Join Existing Room
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* CREATE ROOM FORM */}
+                            {homeMode === 'create' && (
+                                <div className="flex flex-col text-left gap-2.5 max-h-[75vh] overflow-y-auto pr-1">
+                                    <h2 className="text-md font-bold text-blue-400 mb-1">✨ Create a New Study Room</h2>
+                                    
+                                    <label className="text-xs text-gray-400 font-semibold">Your Name:</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Alex..."
+                                        className={`border p-2 rounded text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                    />
+
+                                    <label className="text-xs text-gray-400 font-semibold">Room Code:</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Click generate ->"
+                                            className={`border p-2 rounded text-sm flex-1 font-mono ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
+                                            value={roomCode}
+                                            onChange={(e) => setRoomCode(e.target.value)}
+                                        />
+                                        <button 
+                                            onClick={generateRoomCode}
+                                            className="bg-purple-600 text-white px-3 py-2 rounded text-xs font-bold hover:bg-purple-700">
+                                            Generate
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="text-xs text-gray-400 font-semibold block mb-1">Session Duration:</label>
+                                            <select
+                                                value={roomDuration}
+                                                onChange={(e) => setRoomDuration(e.target.value)}
+                                                className={`border p-2 rounded text-sm w-full ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}>
+                                                <option value="30">30 Mins</option>
+                                                <option value="60">1 Hour</option>
+                                                <option value="90">1.5 Hours</option>
+                                                <option value="120">2 Hours</option>
+                                                <option value="0">Unlimited</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-400 font-semibold block mb-1">Room Password:</label>
+                                            <input
+                                                type="password"
+                                                placeholder="Optional..."
+                                                className={`border p-2 rounded text-sm w-full ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
+                                                value={roomPassword}
+                                                onChange={(e) => setRoomPassword(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <label className="text-xs text-gray-400 font-semibold">Study Topic / Subject:</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Calculus Final Prep..."
+                                        className={`border p-2 rounded text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
+                                        value={roomTopic}
+                                        onChange={(e) => setRoomTopic(e.target.value)}
+                                    />
+
+                                    <label className="text-xs text-gray-400 font-semibold">Room Guidelines / Rules:</label>
+                                    <textarea
+                                        placeholder="e.g. Mikes muted during deep study blocks..."
+                                        rows="2"
+                                        className={`border p-2 rounded text-sm resize-none ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
+                                        value={roomRules}
+                                        onChange={(e) => setRoomRules(e.target.value)}
+                                    />
+
+                                    <div className="flex gap-2 mt-3">
+                                        <button 
+                                            onClick={() => setHomeMode('home')} 
+                                            className={`px-4 py-2 rounded text-sm font-semibold border ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                            Back
+                                        </button>
+                                        <button 
+                                            onClick={enterRoomAction} 
+                                            className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold flex-1 hover:bg-blue-700">
+                                            Enter Room
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* JOIN ROOM FORM */}
+                            {homeMode === 'join' && (
+                                <div className="flex flex-col text-left gap-3">
+                                    <h2 className="text-md font-bold text-blue-400 mb-1">🚪 Join an Existing Room</h2>
+                                    
+                                    <label className="text-xs text-gray-400 font-semibold">Your Name:</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Sarah..."
+                                        className={`border p-2.5 rounded text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                    />
+
+                                    <label className="text-xs text-gray-400 font-semibold">Room Code:</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Enter 6-digit room code..."
+                                        className={`border p-2.5 rounded text-sm font-mono ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
+                                        value={roomCode}
+                                        onChange={(e) => setRoomCode(e.target.value)}
+                                    />
+
+                                    <label className="text-xs text-gray-400 font-semibold">Room Password (If required):</label>
+                                    <input
+                                        type="password"
+                                        placeholder="Room password..."
+                                        className={`border p-2.5 rounded text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
+                                        value={roomPassword}
+                                        onChange={(e) => setRoomPassword(e.target.value)}
+                                    />
+
+                                    <div className="flex gap-2 mt-4">
+                                        <button 
+                                            onClick={() => setHomeMode('home')} 
+                                            className={`px-4 py-2 rounded text-sm font-semibold border ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                            Back
+                                        </button>
+                                        <button 
+                                            onClick={enterRoomAction} 
+                                            className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold flex-1 hover:bg-blue-700">
+                                            Join Room
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                         </div>
                     </div>
                 );
             }
 
+            // IN-ROOM VIEW
             return (
                 <div className={`flex flex-col h-screen overflow-hidden pb-16 sm:pb-0 ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
                     
-                    {/* Minimalist Top Bar (Room info & theme switch) */}
+                    {/* Minimalist Top Bar */}
                     <div className={`flex justify-between items-center px-4 py-2.5 border-b shadow-sm shrink-0 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                        <div>
-                            <h1 className="font-bold text-xs sm:text-sm text-blue-500 truncate max-w-[200px]">Room: {roomCode}</h1>
-                            <p className="text-[10px] text-gray-400">👤 {username}</p>
+                        <div className="flex items-center gap-3">
+                            <div>
+                                <h1 className="font-bold text-xs sm:text-sm text-blue-500 truncate max-w-[180px]">Room: {roomCode} {roomTopic ? `(${roomTopic})` : ''}</h1>
+                                <p className="text-[10px] text-gray-400">👤 {username}</p>
+                            </div>
+                            <button 
+                                onClick={() => window.location.reload()} 
+                                className="bg-red-500/10 text-red-500 border border-red-300 text-[10px] px-2 py-1 rounded font-semibold hover:bg-red-500 hover:text-white transition-all">
+                                Leave Room
+                            </button>
                         </div>
 
-                        {/* Desktop Section Toggles (Hidden on Mobile) */}
+                        {/* Desktop Section Toggles */}
                         <div className="hidden sm:flex gap-2">
                             <button 
                                 onClick={() => setActiveSection('workspace')} 
@@ -518,7 +681,6 @@
                         {/* SECTION 1: WORKSPACE */}
                         {activeSection === 'workspace' && (
                             <div className="flex-1 flex flex-col gap-2 h-full">
-                                {/* Sub-Tabs for Workspace */}
                                 <div className="flex justify-between items-center shrink-0">
                                     <div className="flex gap-2">
                                         <button 
@@ -558,7 +720,6 @@
                                     )}
                                 </div>
 
-                                {/* Workspace Box */}
                                 <div className={`flex-1 flex flex-col p-3 rounded-lg shadow-sm relative overflow-hidden min-h-[300px] ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                                     {workspaceTab === 'notes' ? (
                                         <textarea
@@ -600,7 +761,6 @@
                                     ))}
                                 </div>
 
-                                {/* Messages Box */}
                                 <div className={`flex-1 border overflow-y-auto p-2.5 mb-2 rounded ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                                     {chatList.map((item, index) => (
                                         <div key={index} className="mb-2.5 text-xs">
@@ -628,7 +788,6 @@
                                     ))}
                                 </div>
 
-                                {/* Message Input Form */}
                                 <form onSubmit={sendMessage} className="flex flex-col gap-1.5 shrink-0">
                                     <div className="flex gap-1.5">
                                         <input
@@ -654,8 +813,6 @@
                         {/* SECTION 3: TOOLS */}
                         {activeSection === 'tools' && (
                             <div className="flex-1 flex flex-col gap-3 max-w-xl mx-auto w-full">
-                                
-                                {/* Voice Chat Widget */}
                                 <div className={`p-4 rounded-lg shadow-sm border ${darkMode ? 'bg-gray-800 border-purple-900' : 'bg-purple-50 border-purple-200'}`}>
                                     <h3 className={`font-bold text-sm mb-1 ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>🎙️ Voice Chat</h3>
                                     <p className="text-[11px] text-gray-400 mb-3">
@@ -684,7 +841,6 @@
                                     </div>
                                 </div>
 
-                                {/* Pomodoro Timer Widget */}
                                 <div className={`p-4 rounded-lg shadow-sm flex items-center justify-between ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                                     <div>
                                         <h3 className={`font-bold text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>⏱️ Study Timer</h3>
@@ -696,13 +852,12 @@
                                         <button onClick={() => socket.emit('reset_timer', roomCode)} className="bg-red-600 text-white px-2.5 py-1.5 rounded text-xs font-bold">Reset</button>
                                     </div>
                                 </div>
-
                             </div>
                         )}
 
                     </div>
 
-                    {/* Mobile Bottom Navigation Bar (Fixed at bottom for mobile screens) */}
+                    {/* Mobile Bottom Navigation Bar */}
                     <div className={`sm:hidden fixed bottom-0 left-0 right-0 h-16 border-t flex justify-around items-center px-2 z-50 shadow-lg ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                         <button 
                             onClick={() => setActiveSection('workspace')} 
