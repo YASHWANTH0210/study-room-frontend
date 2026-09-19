@@ -30,11 +30,21 @@
             const [darkMode, setDarkMode] = React.useState(false);
             const [activeUsers, setActiveUsers] = React.useState([]);
             
+            // Right Panel Tab Switcher ('notes' or 'whiteboard')
+            const [activeTab, setActiveTab] = React.useState('notes');
+
             // Voice Chat States
             const [isInVoice, setIsInVoice] = React.useState(false);
             const [isMuted, setIsMuted] = React.useState(false);
             const localStreamRef = React.useRef(null);
             const peersRef = React.useRef([]);
+
+            // Whiteboard States & Refs
+            const canvasRef = React.useRef(null);
+            const [isDrawing, setIsDrawing] = React.useState(false);
+            const [brushColor, setBrushColor] = React.useState('#3b82f6');
+            const [brushSize, setBrushSize] = React.useState(3);
+            const lastPosRef = React.useRef({ x: 0, y: 0 });
 
             React.useEffect(() => {
                 socket.on('receive_message', (data) => {
@@ -69,7 +79,75 @@
                 socket.on('auth_error', (msg) => {
                     setErrorMessage(msg);
                 });
+
+                // Whiteboard listeners
+                socket.on('receive_drawing', (data) => {
+                    drawLine(data.x0, data.y0, data.x1, data.y1, data.color, data.size, false);
+                });
+
+                socket.on('clear_board', () => {
+                    clearCanvasLocally();
+                });
             }, []);
+
+            // Whiteboard Drawing Logic
+            const startDrawing = (e) => {
+                setIsDrawing(true);
+                const canvas = canvasRef.current;
+                const rect = canvas.getBoundingClientRect();
+                lastPosRef.current = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+            };
+
+            const draw = (e) => {
+                if (!isDrawing) return;
+                const canvas = canvasRef.current;
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                drawLine(lastPosRef.current.x, lastPosRef.current.y, x, y, brushColor, brushSize, true);
+                lastPosRef.current = { x, y };
+            };
+
+            const stopDrawing = () => {
+                setIsDrawing(false);
+            };
+
+            const drawLine = (x0, y0, x1, y1, color, size, emit) => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                ctx.beginPath();
+                ctx.moveTo(x0, y0);
+                ctx.lineTo(x1, y1);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = size;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+                ctx.closePath();
+
+                if (emit) {
+                    socket.emit('drawing', {
+                        roomCode,
+                        x0, y0, x1, y1, color, size
+                    });
+                }
+            };
+
+            const clearCanvasLocally = () => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            };
+
+            const clearBoard = () => {
+                clearCanvasLocally();
+                socket.emit('clear_board', roomCode);
+            };
 
             // Voice Chat Logic
             const toggleVoiceChat = async () => {
@@ -346,7 +424,7 @@
                         </form>
                     </div>
 
-                    {/* Right Column: Voice, Timer & Shared Notes */}
+                    {/* Right Column: Voice, Timer & Toggleable Workspace (Notes vs Whiteboard) */}
                     <div className={`flex-1 flex flex-col p-4 gap-4 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
                         
                         {/* Voice Chat Control Widget */}
@@ -384,15 +462,69 @@
                             </div>
                         </div>
 
-                        {/* Shared Workspace */}
-                        <div className={`flex-1 flex flex-col p-4 rounded-lg shadow-md ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                            <h3 className="font-bold text-lg mb-2">Shared Workspace / Notes</h3>
-                            <textarea
-                                value={noteText}
-                                onChange={handleNoteChange}
-                                placeholder="Type notes here. Everyone in room will see live updates!"
-                                className={`flex-1 border p-4 rounded resize-none focus:outline-none ${darkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200 text-black'}`}
-                            />
+                        {/* Workspace Tabs Header */}
+                        <div className={`flex items-center justify-between px-2 pt-2`}>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => setActiveTab('notes')} 
+                                    className={`px-3 py-1 text-sm font-bold rounded ${activeTab === 'notes' ? 'bg-blue-500 text-white' : darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-200 text-gray-700'}`}>
+                                    📝 Shared Notes
+                                </button>
+                                <button 
+                                    onClick={() => setActiveTab('whiteboard')} 
+                                    className={`px-3 py-1 text-sm font-bold rounded ${activeTab === 'whiteboard' ? 'bg-blue-500 text-white' : darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-200 text-gray-700'}`}>
+                                    🎨 Whiteboard
+                                </button>
+                            </div>
+
+                            {activeTab === 'whiteboard' && (
+                                <div className="flex items-center gap-2">
+                                    <input 
+                                        type="color" 
+                                        value={brushColor} 
+                                        onChange={(e) => setBrushColor(e.target.value)}
+                                        className="w-6 h-6 rounded border cursor-pointer"
+                                    />
+                                    <select 
+                                        value={brushSize} 
+                                        onChange={(e) => setBrushSize(Number(e.target.value))}
+                                        className={`text-xs p-1 rounded ${darkMode ? 'bg-gray-800 text-white' : 'bg-white border'}`}>
+                                        <option value={2}>Thin</option>
+                                        <option value={4}>Medium</option>
+                                        <option value={8}>Thick</option>
+                                    </select>
+                                    <button 
+                                        onClick={clearBoard} 
+                                        className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 font-semibold">
+                                        Clear Board
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Workspace Body (Tab Content) */}
+                        <div className={`flex-1 flex flex-col p-4 rounded-lg shadow-md relative overflow-hidden ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                            {activeTab === 'notes' ? (
+                                <textarea
+                                    value={noteText}
+                                    onChange={handleNoteChange}
+                                    placeholder="Type notes here. Everyone in room will see live updates!"
+                                    className={`flex-1 border p-4 rounded resize-none focus:outline-none ${darkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200 text-black'}`}
+                                />
+                            ) : (
+                                <div className="flex-1 w-full h-full relative border rounded overflow-hidden bg-white cursor-crosshair">
+                                    <canvas
+                                        ref={canvasRef}
+                                        width={800}
+                                        height={500}
+                                        onMouseDown={startDrawing}
+                                        onMouseMove={draw}
+                                        onMouseUp={stopDrawing}
+                                        onMouseLeave={stopDrawing}
+                                        className="w-full h-full block"
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
