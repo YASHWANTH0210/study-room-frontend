@@ -11,7 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="font-sans">
+<body class="font-sans overflow-x-hidden">
     <div id="root"></div>
 
     <script type="text/babel">
@@ -30,6 +30,16 @@
             const [darkMode, setDarkMode] = React.useState(false);
             const [activeUsers, setActiveUsers] = React.useState([]);
             
+            // Mobile Detection
+            const [isMobile, setIsMobile] = React.useState(false);
+
+            React.useEffect(() => {
+                const checkMobile = () => {
+                    setIsMobile(/Mobi|Android/i.test(navigator.userAgent));
+                };
+                checkMobile();
+            }, []);
+            
             // Right Panel Tab Switcher ('notes' or 'whiteboard')
             const [activeTab, setActiveTab] = React.useState('notes');
 
@@ -39,7 +49,7 @@
             const localStreamRef = React.useRef(null);
             const peersRef = React.useRef([]);
 
-            // Screen Sharing States
+            // Screen Sharing States (Desktop Only)
             const [isSharingScreen, setIsSharingScreen] = React.useState(false);
             const screenStreamRef = React.useRef(null);
             const screenPeersRef = React.useRef([]);
@@ -96,8 +106,13 @@
                 });
             }, []);
 
-            // Screen Sharing Logic
+            // Screen Sharing Logic (Safe Guarded for Desktop)
             const toggleScreenShare = async () => {
+                if (isMobile) {
+                    alert('Screen sharing is only supported on desktop web browsers.');
+                    return;
+                }
+
                 if (!isSharingScreen) {
                     try {
                         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
@@ -105,7 +120,6 @@
                         setIsSharingScreen(true);
                         socket.emit('join_screen', roomCode);
 
-                        // If user stops sharing via browser UI controls
                         stream.getVideoTracks()[0].onended = () => {
                             stopScreenShare();
                         };
@@ -165,7 +179,7 @@
 
                 peer.on('stream', (remoteStream) => {
                     setRemoteScreenStreams(prev => {
-                        if (!prev.some(s => s.streamId === remoteStream.id)) {
+                        if (!prev.some(s => s.id === userToSignal)) {
                             return [...prev, { id: userToSignal, stream: remoteStream }];
                         }
                         return prev;
@@ -189,7 +203,7 @@
 
                 peer.on('stream', (remoteStream) => {
                     setRemoteScreenStreams(prev => {
-                        if (!prev.some(s => s.streamId === remoteStream.id)) {
+                        if (!prev.some(s => s.id === callerId)) {
                             return [...prev, { id: callerId, stream: remoteStream }];
                         }
                         return prev;
@@ -200,26 +214,31 @@
                 return peer;
             };
 
-            // Whiteboard Drawing Logic
-            const startDrawing = (e) => {
-                setIsDrawing(true);
+            // Whiteboard Drawing Logic (Supports Mouse & Touch)
+            const getPos = (e) => {
                 const canvas = canvasRef.current;
+                if (!canvas) return { x: 0, y: 0 };
                 const rect = canvas.getBoundingClientRect();
-                lastPosRef.current = {
-                    x: e.clientX - rect.left,
-                    y: e.clientY - rect.top
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return {
+                    x: clientX - rect.left,
+                    y: clientY - rect.top
                 };
+            };
+
+            const startDrawing = (e) => {
+                e.preventDefault();
+                setIsDrawing(true);
+                lastPosRef.current = getPos(e);
             };
 
             const draw = (e) => {
                 if (!isDrawing) return;
-                const canvas = canvasRef.current;
-                const rect = canvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-
-                drawLine(lastPosRef.current.x, lastPosRef.current.y, x, y, brushColor, brushSize, true);
-                lastPosRef.current = { x, y };
+                e.preventDefault();
+                const pos = getPos(e);
+                drawLine(lastPosRef.current.x, lastPosRef.current.y, pos.x, pos.y, brushColor, brushSize, true);
+                lastPosRef.current = pos;
             };
 
             const stopDrawing = () => {
@@ -240,10 +259,7 @@
                 ctx.closePath();
 
                 if (emit) {
-                    socket.emit('drawing', {
-                        roomCode,
-                        x0, y0, x1, y1, color, size
-                    });
+                    socket.emit('drawing', { roomCode, x0, y0, x1, y1, color, size });
                 }
             };
 
@@ -291,7 +307,7 @@
                             }
                         });
                     } catch (err) {
-                        alert('Could not access microphone.');
+                        alert('Could not access microphone. Check browser permissions.');
                     }
                 } else {
                     if (localStreamRef.current) {
@@ -415,8 +431,8 @@
 
             if (!isInRoom) {
                 return (
-                    <div className={`flex flex-col items-center justify-center h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-                        <div className={`p-8 rounded-lg shadow-md text-center w-80 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                    <div className={`flex flex-col items-center justify-center h-screen px-4 ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                        <div className={`p-8 rounded-lg shadow-md text-center w-full max-w-sm ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-2xl font-bold text-blue-500">Join Room</h2>
                                 <button 
@@ -461,11 +477,12 @@
             }
 
             return (
-                <div className={`flex h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-                    {/* Left Column: Chat & Online Users */}
-                    <div className={`w-1/3 border-r flex flex-col p-4 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>
+                <div className={`flex flex-col lg:flex-row h-screen overflow-y-auto lg:overflow-hidden ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                    
+                    {/* Left Column: Chat & Online Users (Responsive width) */}
+                    <div className={`w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r flex flex-col p-4 h-[50vh] lg:h-full ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>
                         <div className="flex justify-between items-center mb-2">
-                            <h3 className="font-bold text-sm">Room: {roomCode} | {username}</h3>
+                            <h3 className="font-bold text-sm truncate">Room: {roomCode} | {username}</h3>
                             <button 
                                 onClick={() => setDarkMode(!darkMode)}
                                 className="text-xs px-2 py-1 rounded border border-gray-500 hover:opacity-80">
@@ -476,7 +493,7 @@
                         {/* Active Users Badge Box */}
                         <div className={`mb-3 p-2 rounded border text-xs ${darkMode ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-blue-50 border-blue-100 text-blue-800'}`}>
                             <span className="font-bold">Online ({activeUsers.length}): </span>
-                            {activeUsers.map((u, i) => (
+                            {activeUsers.map((u) => (
                                 <span key={u.id} className="inline-block bg-blue-500 text-white px-1.5 py-0.5 rounded-full text-[10px] mr-1 my-0.5">
                                     {u.username}
                                 </span>
@@ -535,18 +552,18 @@
                     </div>
 
                     {/* Right Column: Voice, Screen Share, Timer & Toggleable Workspace */}
-                    <div className={`flex-1 flex flex-col p-4 gap-4 overflow-y-auto ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+                    <div className={`w-full lg:flex-1 flex flex-col p-4 gap-4 overflow-y-auto h-auto lg:h-full ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
                         
                         {/* Remote Screen Share Video Streams Container */}
                         {remoteScreenStreams.length > 0 && (
                             <div className="flex gap-2 overflow-x-auto p-2 bg-black rounded-lg border border-gray-700">
                                 {remoteScreenStreams.map((item, idx) => (
-                                    <div key={idx} className="relative min-w-[300px] flex-1">
+                                    <div key={idx} className="relative min-w-[280px] flex-1">
                                         <video
                                             autoPlay
                                             playsInline
                                             ref={(vid) => { if (vid) vid.srcObject = item.stream; }}
-                                            className="w-full h-48 object-contain rounded bg-gray-950"
+                                            className="w-full h-40 object-contain rounded bg-gray-950"
                                         />
                                         <span className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-0.5 rounded">
                                             Shared Screen
@@ -557,14 +574,14 @@
                         )}
 
                         {/* Voice & Screen Share Control Widget */}
-                        <div className={`p-3 rounded-lg shadow-md flex items-center justify-between border ${darkMode ? 'bg-gray-800 border-purple-900' : 'bg-purple-50 border-purple-200'}`}>
+                        <div className={`p-3 rounded-lg shadow-md flex flex-col sm:flex-row items-center justify-between gap-3 border ${darkMode ? 'bg-gray-800 border-purple-900' : 'bg-purple-50 border-purple-200'}`}>
                             <div>
-                                <h3 className={`font-bold text-sm ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>🎙️ Voice & Screen Share</h3>
+                                <h3 className={`font-bold text-sm ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>🎙️ Voice & Tools</h3>
                                 <p className="text-[11px] text-gray-400">
-                                    {isInVoice ? 'Voice Connected' : 'Voice Disconnected'} | {isSharingScreen ? 'Sharing Screen' : 'Screen Idle'}
+                                    {isInVoice ? 'Voice Connected' : 'Voice Disconnected'} {isMobile ? '(Mobile)' : ''}
                                 </p>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2">
                                 <button 
                                     onClick={toggleVoiceChat} 
                                     className={`px-2.5 py-1 rounded text-xs font-semibold text-white ${isInVoice ? 'bg-red-500 hover:bg-red-600' : 'bg-purple-600 hover:bg-purple-700'}`}>
@@ -577,34 +594,36 @@
                                         {isMuted ? 'Unmute' : 'Mute'}
                                     </button>
                                 )}
-                                <button 
-                                    onClick={toggleScreenShare} 
-                                    className={`px-2.5 py-1 rounded text-xs font-semibold text-white ${isSharingScreen ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                                    {isSharingScreen ? 'Stop Sharing' : 'Share Screen'}
-                                </button>
+                                {!isMobile && (
+                                    <button 
+                                        onClick={toggleScreenShare} 
+                                        className={`px-2.5 py-1 rounded text-xs font-semibold text-white ${isSharingScreen ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                                        {isSharingScreen ? 'Stop Sharing' : 'Share Screen'}
+                                    </button>
+                                )}
                             </div>
                         </div>
 
                         {/* Pomodoro Timer Widget */}
                         <div className={`p-4 rounded-lg shadow-md flex items-center justify-between ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                             <div>
-                                <h3 className={`font-bold text-md ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Study Timer (Pomodoro)</h3>
-                                <div className="text-3xl font-extrabold text-blue-400 mt-1">{formatTime(timeLeft)}</div>
+                                <h3 className={`font-bold text-md ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Study Timer</h3>
+                                <div className="text-2xl sm:text-3xl font-extrabold text-blue-400 mt-1">{formatTime(timeLeft)}</div>
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={() => socket.emit('start_timer', roomCode)} className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">Start</button>
-                                <button onClick={() => socket.emit('pause_timer', roomCode)} className="bg-yellow-600 text-white px-3 py-1 rounded text-sm hover:bg-yellow-700">Pause</button>
-                                <button onClick={() => socket.emit('reset_timer', roomCode)} className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700">Reset</button>
+                                <button onClick={() => socket.emit('start_timer', roomCode)} className="bg-green-600 text-white px-2.5 py-1 rounded text-xs sm:text-sm hover:bg-green-700">Start</button>
+                                <button onClick={() => socket.emit('pause_timer', roomCode)} className="bg-yellow-600 text-white px-2.5 py-1 rounded text-xs sm:text-sm hover:bg-yellow-700">Pause</button>
+                                <button onClick={() => socket.emit('reset_timer', roomCode)} className="bg-red-600 text-white px-2.5 py-1 rounded text-xs sm:text-sm hover:bg-red-700">Reset</button>
                             </div>
                         </div>
 
                         {/* Workspace Tabs Header */}
-                        <div className={`flex items-center justify-between px-2 pt-2`}>
+                        <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between px-2 pt-2 gap-2`}>
                             <div className="flex gap-2">
                                 <button 
                                     onClick={() => setActiveTab('notes')} 
                                     className={`px-3 py-1 text-sm font-bold rounded ${activeTab === 'notes' ? 'bg-blue-500 text-white' : darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-200 text-gray-700'}`}>
-                                    📝 Shared Notes
+                                    📝 Notes
                                 </button>
                                 <button 
                                     onClick={() => setActiveTab('whiteboard')} 
@@ -614,7 +633,7 @@
                             </div>
 
                             {activeTab === 'whiteboard' && (
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                     <input 
                                         type="color" 
                                         value={brushColor} 
@@ -626,13 +645,13 @@
                                         onChange={(e) => setBrushSize(Number(e.target.value))}
                                         className={`text-xs p-1 rounded ${darkMode ? 'bg-gray-800 text-white' : 'bg-white border'}`}>
                                         <option value={2}>Thin</option>
-                                        <option value={4}>Medium</option>
+                                        <option value={4}>Med</option>
                                         <option value={8}>Thick</option>
                                     </select>
                                     <button 
                                         onClick={clearBoard} 
                                         className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 font-semibold">
-                                        Clear Board
+                                        Clear
                                     </button>
                                 </div>
                             )}
@@ -644,11 +663,11 @@
                                 <textarea
                                     value={noteText}
                                     onChange={handleNoteChange}
-                                    placeholder="Type notes here. Everyone in room will see live updates!"
-                                    className={`flex-1 border p-4 rounded resize-none focus:outline-none ${darkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200 text-black'}`}
+                                    placeholder="Type notes here. Everyone sees live updates!"
+                                    className={`flex-1 border p-4 rounded resize-none focus:outline-none min-h-[250px] ${darkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200 text-black'}`}
                                 />
                             ) : (
-                                <div className="flex-1 w-full h-full relative border rounded overflow-hidden bg-white cursor-crosshair">
+                                <div className="flex-1 w-full h-[300px] lg:h-full relative border rounded overflow-hidden bg-white touch-none">
                                     <canvas
                                         ref={canvasRef}
                                         width={800}
@@ -657,7 +676,10 @@
                                         onMouseMove={draw}
                                         onMouseUp={stopDrawing}
                                         onMouseLeave={stopDrawing}
-                                        className="w-full h-full block"
+                                        onTouchStart={startDrawing}
+                                        onTouchMove={draw}
+                                        onTouchEnd={stopDrawing}
+                                        className="w-full h-full block cursor-crosshair"
                                     />
                                 </div>
                             )}
