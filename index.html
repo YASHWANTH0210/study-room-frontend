@@ -18,19 +18,23 @@
         const socket = io('https://study-room-backend-syn8.onrender.com');
 
         function App() {
-            const [username, setUsername] = React.useState('');
+            // User Profile States (persisted with localStorage)
+            const [username, setUsername] = React.useState(() => localStorage.getItem('study_username') || '');
+            const [userAvatar, setUserAvatar] = React.useState(() => localStorage.getItem('study_avatar') || '🎓');
+            const [userStatus, setUserStatus] = React.useState(() => localStorage.getItem('study_status') || 'Student');
+
             const [roomCode, setRoomCode] = React.useState('');
             const [roomPassword, setRoomPassword] = React.useState('');
             
-            // New Room Creation Customization States
-            const [roomDuration, setRoomDuration] = React.useState('60'); // default 60 mins
+            // Room Creation States
+            const [roomDuration, setRoomDuration] = React.useState('60');
             const [roomTopic, setRoomTopic] = React.useState('');
             const [roomRules, setRoomRules] = React.useState('');
 
             const [errorMessage, setErrorMessage] = React.useState('');
             const [isInRoom, setIsInRoom] = React.useState(false);
             
-            // Home page mode state: 'home', 'join', or 'create'
+            // Home page modes: 'home', 'join', 'create', 'profile'
             const [homeMode, setHomeMode] = React.useState('home');
 
             const [message, setMessage] = React.useState('');
@@ -115,7 +119,20 @@
                 });
             }, []);
 
-            // Generate a random room code for creating a room
+            // Save Profile changes
+            const saveProfile = (e) => {
+                e.preventDefault();
+                if (!username.trim()) {
+                    setErrorMessage('Please enter a valid name.');
+                    return;
+                }
+                localStorage.setItem('study_username', username);
+                localStorage.setItem('study_avatar', userAvatar);
+                localStorage.setItem('study_status', userStatus);
+                setErrorMessage('');
+                setHomeMode('home');
+            };
+
             const generateRoomCode = () => {
                 const randomCode = Math.floor(100000 + Math.random() * 900000).toString();
                 setRoomCode(randomCode);
@@ -390,9 +407,14 @@
             };
 
             const enterRoomAction = () => {
-                if (username !== '' && roomCode !== '') {
+                if (!username.trim()) {
+                    setErrorMessage('Please set up your profile name first.');
+                    setHomeMode('profile');
+                    return;
+                }
+                if (roomCode !== '') {
                     socket.emit('join_room', { 
-                        username, 
+                        username: `${userAvatar} ${username} (${userStatus})`, 
                         roomCode, 
                         password: roomPassword,
                         duration: roomDuration,
@@ -400,7 +422,7 @@
                         rules: roomRules
                     });
                 } else {
-                    setErrorMessage('Please fill in your name and room code.');
+                    setErrorMessage('Please enter a room code.');
                 }
             };
 
@@ -409,7 +431,7 @@
                 if (message !== '') {
                     const messageData = {
                         roomCode,
-                        username,
+                        username: `${userAvatar} ${username}`,
                         message,
                         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     };
@@ -427,7 +449,7 @@
                 reader.onload = () => {
                     const fileData = {
                         roomCode,
-                        username,
+                        username: `${userAvatar} ${username}`,
                         fileName: file.name,
                         fileType: file.type,
                         fileUrl: reader.result,
@@ -457,44 +479,69 @@
                     <div className={`flex flex-col items-center justify-center min-h-screen py-6 px-4 ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
                         <div className={`p-6 sm:p-8 rounded-xl shadow-lg text-center w-full max-w-md ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                             
-                            {/* Theme Toggle Top Bar */}
+                            {/* Top Bar with Profile Badge & Theme Toggle */}
                             <div className="flex justify-between items-center mb-4">
-                                <h1 className="text-xl font-extrabold text-blue-500">📚 Virtual Study Room</h1>
+                                <button 
+                                    onClick={() => setHomeMode('profile')}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${darkMode ? 'bg-gray-700 border-gray-600 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
+                                    <span>{userAvatar}</span>
+                                    <span className="truncate max-w-[90px]">{username || 'Set Profile'}</span>
+                                </button>
                                 <button 
                                     onClick={() => setDarkMode(!darkMode)}
                                     className="text-xs px-2.5 py-1.5 rounded border border-gray-500 hover:opacity-80">
-                                    {darkMode ? '☀️ Light' : '🌙 Dark'}
+                                    {darkMode ? '☀️' : '🌙'}
                                 </button>
                             </div>
 
+                            <h1 className="text-xl font-extrabold text-blue-500 mb-1">📚 Virtual Study Room</h1>
+
                             {errorMessage && (
-                                <div className="mb-4 p-2.5 bg-red-100 text-red-700 text-xs rounded border border-red-300">
+                                <div className="mb-3 p-2 bg-red-100 text-red-700 text-xs rounded border border-red-300">
                                     {errorMessage}
                                 </div>
                             )}
 
                             {/* MAIN HOME SELECTION VIEW */}
                             {homeMode === 'home' && (
-                                <div className="flex flex-col gap-4 py-4">
-                                    <p className="text-sm text-gray-400 mb-2">Collaborate, share notes, draw, and study together in real-time.</p>
+                                <div className="flex flex-col gap-3 py-3">
+                                    <p className="text-xs text-gray-400 mb-2">Collaborate, share notes, draw, and study together in real-time.</p>
                                     <button 
                                         onClick={() => setHomeMode('create')} 
-                                        className="bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 shadow transition-all">
+                                        className="bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 shadow transition-all text-sm">
                                         ✨ Create a New Room
                                     </button>
                                     <button 
                                         onClick={() => setHomeMode('join')} 
-                                        className={`p-3 rounded-lg font-bold border transition-all ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-50'}`}>
+                                        className={`p-3 rounded-lg font-bold border text-sm transition-all ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-50'}`}>
                                         🚪 Join Existing Room
+                                    </button>
+                                    <button 
+                                        onClick={() => setHomeMode('profile')} 
+                                        className={`text-xs p-2 rounded font-semibold underline text-gray-400 hover:text-blue-500`}>
+                                        ✏️ Edit My Profile
                                     </button>
                                 </div>
                             )}
 
-                            {/* CREATE ROOM FORM */}
-                            {homeMode === 'create' && (
-                                <div className="flex flex-col text-left gap-2.5 max-h-[75vh] overflow-y-auto pr-1">
-                                    <h2 className="text-md font-bold text-blue-400 mb-1">✨ Create a New Study Room</h2>
+                            {/* USER PROFILE CONFIG VIEW */}
+                            {homeMode === 'profile' && (
+                                <form onSubmit={saveProfile} className="flex flex-col text-left gap-3">
+                                    <h2 className="text-md font-bold text-blue-400 mb-1">👤 Edit Your Profile</h2>
                                     
+                                    <label className="text-xs text-gray-400 font-semibold">Choose Avatar Emoji:</label>
+                                    <div className="flex gap-2 text-xl">
+                                        {['🎓', '💻', '📚', '⚡', '🦉', '🚀', '🧠'].map((emoji) => (
+                                            <button
+                                                type="button"
+                                                key={emoji}
+                                                onClick={() => setUserAvatar(emoji)}
+                                                className={`p-1.5 rounded border ${userAvatar === emoji ? 'bg-blue-500 border-blue-600 scale-110' : darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'} transition-all`}>
+                                                {emoji}
+                                            </button>
+                                        ))}
+                                    </div>
+
                                     <label className="text-xs text-gray-400 font-semibold">Your Name:</label>
                                     <input
                                         type="text"
@@ -504,6 +551,36 @@
                                         onChange={(e) => setUsername(e.target.value)}
                                     />
 
+                                    <label className="text-xs text-gray-400 font-semibold">Study Status / Role:</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Exam Prep / Developer..."
+                                        className={`border p-2 rounded text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
+                                        value={userStatus}
+                                        onChange={(e) => setUserStatus(e.target.value)}
+                                    />
+
+                                    <div className="flex gap-2 mt-4">
+                                        <button 
+                                            type="button"
+                                            onClick={() => setHomeMode('home')} 
+                                            className={`px-4 py-2 rounded text-sm font-semibold border ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                            Back
+                                        </button>
+                                        <button 
+                                            type="submit" 
+                                            className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold flex-1 hover:bg-blue-700">
+                                            Save Profile
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+
+                            {/* CREATE ROOM FORM */}
+                            {homeMode === 'create' && (
+                                <div className="flex flex-col text-left gap-2.5 max-h-[70vh] overflow-y-auto pr-1">
+                                    <h2 className="text-md font-bold text-blue-400 mb-1">✨ Create a New Study Room</h2>
+                                    
                                     <label className="text-xs text-gray-400 font-semibold">Room Code:</label>
                                     <div className="flex gap-2">
                                         <input
@@ -522,7 +599,7 @@
 
                                     <div className="grid grid-cols-2 gap-2">
                                         <div>
-                                            <label className="text-xs text-gray-400 font-semibold block mb-1">Session Duration:</label>
+                                            <label className="text-xs text-gray-400 font-semibold block mb-1">Duration:</label>
                                             <select
                                                 value={roomDuration}
                                                 onChange={(e) => setRoomDuration(e.target.value)}
@@ -535,7 +612,7 @@
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="text-xs text-gray-400 font-semibold block mb-1">Room Password:</label>
+                                            <label className="text-xs text-gray-400 font-semibold block mb-1">Password:</label>
                                             <input
                                                 type="password"
                                                 placeholder="Optional..."
@@ -555,7 +632,7 @@
                                         onChange={(e) => setRoomTopic(e.target.value)}
                                     />
 
-                                    <label className="text-xs text-gray-400 font-semibold">Room Guidelines / Rules:</label>
+                                    <label className="text-xs text-gray-400 font-semibold">Guidelines / Rules:</label>
                                     <textarea
                                         placeholder="e.g. Mikes muted during deep study blocks..."
                                         rows="2"
@@ -584,15 +661,6 @@
                                 <div className="flex flex-col text-left gap-3">
                                     <h2 className="text-md font-bold text-blue-400 mb-1">🚪 Join an Existing Room</h2>
                                     
-                                    <label className="text-xs text-gray-400 font-semibold">Your Name:</label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g. Sarah..."
-                                        className={`border p-2.5 rounded text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
-                                    />
-
                                     <label className="text-xs text-gray-400 font-semibold">Room Code:</label>
                                     <input
                                         type="text"
@@ -640,7 +708,7 @@
                         <div className="flex items-center gap-3">
                             <div>
                                 <h1 className="font-bold text-xs sm:text-sm text-blue-500 truncate max-w-[180px]">Room: {roomCode} {roomTopic ? `(${roomTopic})` : ''}</h1>
-                                <p className="text-[10px] text-gray-400">👤 {username}</p>
+                                <p className="text-[10px] text-gray-400">👤 {userAvatar} {username}</p>
                             </div>
                             <button 
                                 onClick={() => window.location.reload()} 
@@ -755,7 +823,7 @@
                                 <div className={`mb-2 p-2 rounded border text-[11px] shrink-0 ${darkMode ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-blue-50 border-blue-100 text-blue-800'}`}>
                                     <span className="font-bold">Online ({activeUsers.length}): </span>
                                     {activeUsers.map((u) => (
-                                        <span key={u.id} className="inline-block bg-blue-500 text-white px-1.5 py-0.5 rounded-full text-[9px] mr-1 my-0.5">
+                                        <span key={u.id} className="inline-block bg-blue-500 text-white px-2 py-0.5 rounded-full text-[10px] mr-1 my-0.5">
                                             {u.username}
                                         </span>
                                     ))}
