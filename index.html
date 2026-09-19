@@ -34,7 +34,8 @@
 
             React.useEffect(() => {
                 const checkMobile = () => {
-                    setIsMobile(/Mobi|Android/i.test(navigator.userAgent));
+                    const mobileCheck = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+                    setIsMobile(mobileCheck);
                 };
                 checkMobile();
             }, []);
@@ -47,7 +48,7 @@
             const localStreamRef = React.useRef(null);
             const peersRef = React.useRef([]);
 
-            // Screen Sharing States (Now Enabled for Mobile too!)
+            // Screen Sharing States
             const [isSharingScreen, setIsSharingScreen] = React.useState(false);
             const screenStreamRef = React.useRef(null);
             const screenPeersRef = React.useRef([]);
@@ -103,11 +104,15 @@
                 });
             }, []);
 
-            // Screen Sharing Logic (Allowed on Mobile & Desktop)
+            // Screen Sharing Logic (Desktop-supported with clean mobile handling)
             const toggleScreenShare = async () => {
+                if (isMobile) {
+                    alert('Mobile browsers restrict screen broadcasting. You can still view screens shared by PC users!');
+                    return;
+                }
+
                 if (!isSharingScreen) {
                     try {
-                        // navigator.mediaDevices.getDisplayMedia works on modern mobile browsers too
                         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
                         screenStreamRef.current = stream;
                         setIsSharingScreen(true);
@@ -142,7 +147,6 @@
                         });
                     } catch (err) {
                         console.error('Error sharing screen:', err);
-                        alert('Screen sharing permission denied or unsupported by this mobile browser version.');
                     }
                 } else {
                     stopScreenShare();
@@ -567,12 +571,12 @@
                             </div>
                         )}
 
-                        {/* Voice & Screen Share Control Widget (Now active for mobile too!) */}
+                        {/* Voice & Screen Share Control Widget */}
                         <div className={`p-3 rounded-lg shadow-md flex flex-col sm:flex-row items-center justify-between gap-3 border ${darkMode ? 'bg-gray-800 border-purple-900' : 'bg-purple-50 border-purple-200'}`}>
                             <div>
                                 <h3 className={`font-bold text-sm ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>🎙️ Voice & Tools</h3>
                                 <p className="text-[11px] text-gray-400">
-                                    {isInVoice ? 'Voice Connected' : 'Voice Disconnected'}
+                                    {isInVoice ? 'Voice Connected' : 'Voice Disconnected'} {isMobile ? '(Mobile View)' : ''}
                                 </p>
                             </div>
                             <div className="flex flex-wrap gap-2">
