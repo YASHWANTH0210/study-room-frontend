@@ -477,107 +477,81 @@
             }
 
             return (
-                <div className={`flex flex-col h-screen overflow-hidden ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                <div className={`flex flex-col h-screen overflow-hidden pb-16 sm:pb-0 ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
                     
-                    {/* Top Header Navigation Bar */}
-                    <div className={`flex justify-between items-center px-4 py-3 border-b shadow-sm ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    {/* Minimalist Top Bar (Room info & theme switch) */}
+                    <div className={`flex justify-between items-center px-4 py-2.5 border-b shadow-sm shrink-0 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                         <div>
-                            <h1 className="font-bold text-md text-blue-500">📚 Study Room: {roomCode}</h1>
-                            <p className="text-[11px] text-gray-400">User: {username}</p>
+                            <h1 className="font-bold text-xs sm:text-sm text-blue-500 truncate max-w-[200px]">Room: {roomCode}</h1>
+                            <p className="text-[10px] text-gray-400">👤 {username}</p>
                         </div>
 
-                        {/* Main Section Toggles */}
-                        <div className="flex gap-1 sm:gap-2">
+                        {/* Desktop Section Toggles (Hidden on Mobile) */}
+                        <div className="hidden sm:flex gap-2">
                             <button 
                                 onClick={() => setActiveSection('workspace')} 
-                                className={`px-3 py-1.5 rounded text-xs sm:text-sm font-bold transition-all ${activeSection === 'workspace' ? 'bg-blue-600 text-white shadow' : darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                                className={`px-3 py-1 rounded text-xs font-bold ${activeSection === 'workspace' ? 'bg-blue-600 text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
                                 🖥️ Workspace
                             </button>
                             <button 
                                 onClick={() => setActiveSection('chat')} 
-                                className={`px-3 py-1.5 rounded text-xs sm:text-sm font-bold transition-all ${activeSection === 'chat' ? 'bg-blue-600 text-white shadow' : darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                                💬 Chat & Members ({activeUsers.length})
+                                className={`px-3 py-1 rounded text-xs font-bold ${activeSection === 'chat' ? 'bg-blue-600 text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
+                                💬 Chat ({activeUsers.length})
                             </button>
                             <button 
                                 onClick={() => setActiveSection('tools')} 
-                                className={`px-3 py-1.5 rounded text-xs sm:text-sm font-bold transition-all ${activeSection === 'tools' ? 'bg-blue-600 text-white shadow' : darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                                className={`px-3 py-1 rounded text-xs font-bold ${activeSection === 'tools' ? 'bg-blue-600 text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
                                 🛠️ Voice & Timer
                             </button>
                         </div>
 
                         <button 
                             onClick={() => setDarkMode(!darkMode)}
-                            className="text-xs px-2.5 py-1.5 rounded border border-gray-500 hover:opacity-80">
+                            className="text-xs px-2 py-1 rounded border border-gray-500 hover:opacity-80">
                             {darkMode ? '☀️' : '🌙'}
                         </button>
                     </div>
 
-                    {/* Main Content Sections */}
-                    <div className="flex-1 overflow-y-auto p-4 flex flex-col">
+                    {/* Main Content Area */}
+                    <div className="flex-1 overflow-y-auto p-3 flex flex-col">
                         
-                        {/* SECTION 1: WORKSPACE (Notes & Whiteboard & Screen Shares) */}
+                        {/* SECTION 1: WORKSPACE */}
                         {activeSection === 'workspace' && (
-                            <div className="flex-1 flex flex-col gap-3 h-full">
-                                {/* Remote Screen Share Streams (PC only) */}
-                                {remoteScreenStreams.length > 0 && !isMobile && (
-                                    <div className="hidden lg:flex flex-col gap-2 p-2 bg-black rounded-lg border border-gray-700">
-                                        <span className="text-xs text-white font-bold px-1">🖥️ Shared Screens ({remoteScreenStreams.length}):</span>
-                                        {remoteScreenStreams.map((item, idx) => (
-                                            <div key={idx} className="relative w-full bg-gray-950 rounded overflow-hidden border border-gray-800" style={{ minHeight: '200px' }}>
-                                                <video
-                                                    autoPlay
-                                                    playsInline
-                                                    muted={false}
-                                                    ref={(vid) => { 
-                                                        if (vid && vid.srcObject !== item.stream) { 
-                                                            vid.srcObject = item.stream; 
-                                                            vid.play().catch(e => console.log("Autoplay waiting for interaction:", e));
-                                                        } 
-                                                    }}
-                                                    className="w-full h-auto max-h-[250px] object-contain block mx-auto"
-                                                />
-                                                <span className="absolute bottom-2 left-2 bg-black/80 text-white text-[10px] px-2 py-0.5 rounded">
-                                                    Stream ID: {item.id.slice(0, 5)}...
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/* Sub-Tabs for Workspace (Notes vs Whiteboard) */}
-                                <div className="flex justify-between items-center">
+                            <div className="flex-1 flex flex-col gap-2 h-full">
+                                {/* Sub-Tabs for Workspace */}
+                                <div className="flex justify-between items-center shrink-0">
                                     <div className="flex gap-2">
                                         <button 
                                             onClick={() => setWorkspaceTab('notes')} 
-                                            className={`px-3 py-1 text-xs sm:text-sm font-bold rounded ${workspaceTab === 'notes' ? 'bg-blue-500 text-white' : darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-200 text-gray-700'}`}>
-                                            📝 Shared Notes
+                                            className={`px-3 py-1 text-xs font-bold rounded ${workspaceTab === 'notes' ? 'bg-blue-500 text-white' : darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-200 text-gray-700'}`}>
+                                            📝 Notes
                                         </button>
                                         <button 
                                             onClick={() => setWorkspaceTab('whiteboard')} 
-                                            className={`px-3 py-1 text-xs sm:text-sm font-bold rounded ${workspaceTab === 'whiteboard' ? 'bg-blue-500 text-white' : darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-200 text-gray-700'}`}>
+                                            className={`px-3 py-1 text-xs font-bold rounded ${workspaceTab === 'whiteboard' ? 'bg-blue-500 text-white' : darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-200 text-gray-700'}`}>
                                             🎨 Whiteboard
                                         </button>
                                     </div>
 
                                     {workspaceTab === 'whiteboard' && (
-                                        <div className="flex items-center gap-2 flex-wrap">
+                                        <div className="flex items-center gap-1.5">
                                             <input 
                                                 type="color" 
                                                 value={brushColor} 
                                                 onChange={(e) => setBrushColor(e.target.value)}
-                                                className="w-6 h-6 rounded border cursor-pointer"
+                                                className="w-5 h-5 rounded border cursor-pointer"
                                             />
                                             <select 
                                                 value={brushSize} 
                                                 onChange={(e) => setBrushSize(Number(e.target.value))}
-                                                className={`text-xs p-1 rounded ${darkMode ? 'bg-gray-800 text-white' : 'bg-white border'}`}>
+                                                className={`text-[11px] p-0.5 rounded ${darkMode ? 'bg-gray-800 text-white' : 'bg-white border'}`}>
                                                 <option value={2}>Thin</option>
                                                 <option value={4}>Med</option>
                                                 <option value={8}>Thick</option>
                                             </select>
                                             <button 
                                                 onClick={clearBoard} 
-                                                className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 font-semibold">
+                                                className="bg-red-500 text-white px-2 py-0.5 rounded text-[11px] font-semibold">
                                                 Clear
                                             </button>
                                         </div>
@@ -585,20 +559,20 @@
                                 </div>
 
                                 {/* Workspace Box */}
-                                <div className={`flex-1 flex flex-col p-4 rounded-lg shadow-md relative overflow-hidden min-h-[400px] ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                                <div className={`flex-1 flex flex-col p-3 rounded-lg shadow-sm relative overflow-hidden min-h-[300px] ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                                     {workspaceTab === 'notes' ? (
                                         <textarea
                                             value={noteText}
                                             onChange={handleNoteChange}
-                                            placeholder="Type notes here. Everyone in the room sees live updates!"
-                                            className={`flex-1 border p-4 rounded resize-none focus:outline-none min-h-[350px] ${darkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200 text-black'}`}
+                                            placeholder="Type shared notes here..."
+                                            className={`flex-1 border p-3 rounded resize-none focus:outline-none text-sm min-h-[250px] ${darkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200 text-black'}`}
                                         />
                                     ) : (
-                                        <div className="flex-1 w-full h-[400px] relative border rounded overflow-hidden bg-white touch-none">
+                                        <div className="flex-1 w-full relative border rounded overflow-hidden bg-white touch-none min-h-[300px]">
                                             <canvas
                                                 ref={canvasRef}
-                                                width={900}
-                                                height={600}
+                                                width={800}
+                                                height={500}
                                                 onMouseDown={startDrawing}
                                                 onMouseMove={draw}
                                                 onMouseUp={stopDrawing}
@@ -616,39 +590,36 @@
 
                         {/* SECTION 2: CHAT & MEMBERS */}
                         {activeSection === 'chat' && (
-                            <div className={`flex-1 flex flex-col p-4 rounded-lg shadow-md h-full max-w-3xl mx-auto w-full ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                                <h3 className="font-bold text-md mb-2">💬 Room Chat & Active Members</h3>
-                                
-                                {/* Active Users Chips */}
-                                <div className={`mb-3 p-2 rounded border text-xs ${darkMode ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-blue-50 border-blue-100 text-blue-800'}`}>
-                                    <span className="font-bold">Online Now ({activeUsers.length}): </span>
+                            <div className={`flex-1 flex flex-col p-3 rounded-lg shadow-sm h-full max-w-2xl mx-auto w-full ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                                <div className={`mb-2 p-2 rounded border text-[11px] shrink-0 ${darkMode ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-blue-50 border-blue-100 text-blue-800'}`}>
+                                    <span className="font-bold">Online ({activeUsers.length}): </span>
                                     {activeUsers.map((u) => (
-                                        <span key={u.id} className="inline-block bg-blue-500 text-white px-2 py-0.5 rounded-full text-[10px] mr-1 my-0.5">
+                                        <span key={u.id} className="inline-block bg-blue-500 text-white px-1.5 py-0.5 rounded-full text-[9px] mr-1 my-0.5">
                                             {u.username}
                                         </span>
                                     ))}
                                 </div>
 
                                 {/* Messages Box */}
-                                <div className={`flex-1 border overflow-y-auto p-3 mb-3 rounded ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                                <div className={`flex-1 border overflow-y-auto p-2.5 mb-2 rounded ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                                     {chatList.map((item, index) => (
-                                        <div key={index} className="mb-3">
+                                        <div key={index} className="mb-2.5 text-xs">
                                             <span className="font-bold text-blue-400">{item.username}</span> 
-                                            <span className="text-xs text-gray-400 ml-2">{item.time}</span>
+                                            <span className="text-[10px] text-gray-400 ml-2">{item.time}</span>
                                             {item.message ? (
                                                 <p className={darkMode ? 'text-gray-200 mt-0.5' : 'text-gray-700 mt-0.5'}>{item.message}</p>
                                             ) : (
                                                 <div className="mt-1">
                                                     {item.fileType && item.fileType.startsWith('image/') ? (
                                                         <div>
-                                                            <img src={item.fileUrl} alt={item.fileName} className="max-w-[200px] rounded border my-1 shadow-sm" />
+                                                            <img src={item.fileUrl} alt={item.fileName} className="max-w-[160px] rounded border my-1 shadow-sm" />
                                                             <a href={item.fileUrl} download={item.fileName} className="text-blue-400 underline text-[10px] block">
                                                                 Download {item.fileName}
                                                             </a>
                                                         </div>
                                                     ) : (
-                                                        <a href={item.fileUrl} download={item.fileName} className="text-blue-500 underline text-xs font-semibold flex items-center gap-1">
-                                                            📎 {item.fileName} (Download)
+                                                        <a href={item.fileUrl} download={item.fileName} className="text-blue-500 underline font-semibold flex items-center gap-1">
+                                                            📎 {item.fileName}
                                                         </a>
                                                     )}
                                                 </div>
@@ -658,72 +629,71 @@
                                 </div>
 
                                 {/* Message Input Form */}
-                                <form onSubmit={sendMessage} className="flex flex-col gap-2">
-                                    <div className="flex gap-2">
+                                <form onSubmit={sendMessage} className="flex flex-col gap-1.5 shrink-0">
+                                    <div className="flex gap-1.5">
                                         <input
                                             type="text"
                                             value={message}
-                                            placeholder="Type a message to the room..."
-                                            className={`border flex-1 p-2.5 rounded text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
+                                            placeholder="Type message..."
+                                            className={`border flex-1 p-2 rounded text-xs ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
                                             onChange={(e) => setMessage(e.target.value)}
                                         />
-                                        <button type="submit" className="bg-blue-500 text-white px-4 py-2.5 rounded text-sm hover:bg-blue-600 font-bold">Send</button>
+                                        <button type="submit" className="bg-blue-500 text-white px-3 py-2 rounded text-xs font-bold">Send</button>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <label className="text-xs text-gray-400">Attach file/image:</label>
+                                    <div className="flex items-center gap-1">
                                         <input 
                                             type="file" 
                                             onChange={handleFileUpload}
-                                            className="text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                                            className="text-[10px] text-gray-400 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[10px] file:font-semibold file:bg-blue-50 file:text-blue-700"
                                         />
                                     </div>
                                 </form>
                             </div>
                         )}
 
-                        {/* SECTION 3: TOOLS (Voice Chat, Screen Sharing & Timer) */}
+                        {/* SECTION 3: TOOLS */}
                         {activeSection === 'tools' && (
-                            <div className="flex-1 flex flex-col gap-4 max-w-2xl mx-auto w-full">
+                            <div className="flex-1 flex flex-col gap-3 max-w-xl mx-auto w-full">
                                 
-                                {/* Voice Chat & Screen Share Widget */}
-                                <div className={`p-5 rounded-lg shadow-md border ${darkMode ? 'bg-gray-800 border-purple-900' : 'bg-purple-50 border-purple-200'}`}>
-                                    <h3 className={`font-bold text-md mb-1 ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>🎙️ Voice Chat & Screen Sharing</h3>
-                                    <p className="text-xs text-gray-400 mb-4">
-                                        {isInVoice ? 'Connected to voice room' : 'Not connected to voice'}
+                                {/* Voice Chat Widget */}
+                                <div className={`p-4 rounded-lg shadow-sm border ${darkMode ? 'bg-gray-800 border-purple-900' : 'bg-purple-50 border-purple-200'}`}>
+                                    <h3 className={`font-bold text-sm mb-1 ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>🎙️ Voice Chat</h3>
+                                    <p className="text-[11px] text-gray-400 mb-3">
+                                        {isInVoice ? 'Connected to voice' : 'Disconnected'}
                                     </p>
-                                    <div className="flex flex-wrap gap-3">
+                                    <div className="flex flex-wrap gap-2">
                                         <button 
                                             onClick={toggleVoiceChat} 
-                                            className={`px-4 py-2 rounded text-sm font-semibold text-white ${isInVoice ? 'bg-red-500 hover:bg-red-600' : 'bg-purple-600 hover:bg-purple-700'}`}>
-                                            {isInVoice ? 'Leave Voice Chat' : 'Join Voice Chat'}
+                                            className={`px-3 py-1.5 rounded text-xs font-semibold text-white ${isInVoice ? 'bg-red-500 hover:bg-red-600' : 'bg-purple-600 hover:bg-purple-700'}`}>
+                                            {isInVoice ? 'Leave Voice' : 'Join Voice'}
                                         </button>
                                         {isInVoice && (
                                             <button 
                                                 onClick={toggleMute} 
-                                                className={`px-4 py-2 rounded text-sm font-semibold text-white ${isMuted ? 'bg-amber-600 hover:bg-amber-700' : 'bg-gray-600 hover:bg-gray-700'}`}>
-                                                {isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
+                                                className={`px-3 py-1.5 rounded text-xs font-semibold text-white ${isMuted ? 'bg-amber-600' : 'bg-gray-600'}`}>
+                                                {isMuted ? 'Unmute' : 'Mute'}
                                             </button>
                                         )}
                                         {!isMobile && (
                                             <button 
                                                 onClick={toggleScreenShare} 
-                                                className={`px-4 py-2 rounded text-sm font-semibold text-white ${isSharingScreen ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                                                {isSharingScreen ? 'Stop Screen Sharing' : 'Share Screen (PC Only)'}
+                                                className={`px-3 py-1.5 rounded text-xs font-semibold text-white ${isSharingScreen ? 'bg-red-500' : 'bg-blue-600'}`}>
+                                                {isSharingScreen ? 'Stop Screen' : 'Share Screen'}
                                             </button>
                                         )}
                                     </div>
                                 </div>
 
                                 {/* Pomodoro Timer Widget */}
-                                <div className={`p-5 rounded-lg shadow-md flex items-center justify-between ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                                <div className={`p-4 rounded-lg shadow-sm flex items-center justify-between ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                                     <div>
-                                        <h3 className={`font-bold text-lg ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>⏱️ Study Timer</h3>
-                                        <div className="text-4xl font-extrabold text-blue-400 mt-2">{formatTime(timeLeft)}</div>
+                                        <h3 className={`font-bold text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>⏱️ Study Timer</h3>
+                                        <div className="text-3xl font-extrabold text-blue-400 mt-1">{formatTime(timeLeft)}</div>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => socket.emit('start_timer', roomCode)} className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 font-bold">Start</button>
-                                        <button onClick={() => socket.emit('pause_timer', roomCode)} className="bg-yellow-600 text-white px-3 py-2 rounded text-sm hover:bg-yellow-700 font-bold">Pause</button>
-                                        <button onClick={() => socket.emit('reset_timer', roomCode)} className="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 font-bold">Reset</button>
+                                    <div className="flex gap-1.5">
+                                        <button onClick={() => socket.emit('start_timer', roomCode)} className="bg-green-600 text-white px-2.5 py-1.5 rounded text-xs font-bold">Start</button>
+                                        <button onClick={() => socket.emit('pause_timer', roomCode)} className="bg-yellow-600 text-white px-2.5 py-1.5 rounded text-xs font-bold">Pause</button>
+                                        <button onClick={() => socket.emit('reset_timer', roomCode)} className="bg-red-600 text-white px-2.5 py-1.5 rounded text-xs font-bold">Reset</button>
                                     </div>
                                 </div>
 
@@ -731,6 +701,29 @@
                         )}
 
                     </div>
+
+                    {/* Mobile Bottom Navigation Bar (Fixed at bottom for mobile screens) */}
+                    <div className={`sm:hidden fixed bottom-0 left-0 right-0 h-16 border-t flex justify-around items-center px-2 z-50 shadow-lg ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                        <button 
+                            onClick={() => setActiveSection('workspace')} 
+                            className={`flex flex-col items-center justify-center flex-1 py-1 text-xs font-bold ${activeSection === 'workspace' ? 'text-blue-500' : darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            <span className="text-lg">🖥️</span>
+                            <span>Workspace</span>
+                        </button>
+                        <button 
+                            onClick={() => setActiveSection('chat')} 
+                            className={`flex flex-col items-center justify-center flex-1 py-1 text-xs font-bold ${activeSection === 'chat' ? 'text-blue-500' : darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            <span className="text-lg">💬</span>
+                            <span>Chat</span>
+                        </button>
+                        <button 
+                            onClick={() => setActiveSection('tools')} 
+                            className={`flex flex-col items-center justify-center flex-1 py-1 text-xs font-bold ${activeSection === 'tools' ? 'text-blue-500' : darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            <span className="text-lg">🛠️</span>
+                            <span>Tools</span>
+                        </button>
+                    </div>
+
                 </div>
             );
         }
