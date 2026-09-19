@@ -57,7 +57,7 @@
             });
             const [newTodoText, setNewTodoText] = React.useState('');
 
-            // Ambient Sound States (Using Web Audio API Noise Nodes)
+            // Ambient Sound States (Using Web Audio API Noise Nodes with Autoplay fix)
             const [activeSound, setActiveSound] = React.useState('none');
             const audioCtxRef = React.useRef(null);
             const noiseNodeRef = React.useRef(null);
@@ -161,7 +161,7 @@
                 localStorage.setItem('study_todos', JSON.stringify(updated));
             };
 
-            // Ambient Sound Synthesizer (Web Audio API)
+            // Ambient Sound Synthesizer (Web Audio API with Autoplay resume fix)
             const playAmbientSound = (type) => {
                 stopAmbientSound();
                 if (type === 'none') {
@@ -169,56 +169,67 @@
                     return;
                 }
 
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                const ctx = new AudioContext();
-                audioCtxRef.current = ctx;
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    const ctx = new AudioContext();
 
-                // Create buffer for noise generation
-                const bufferSize = ctx.sampleRate * 2;
-                const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-                const output = noiseBuffer.getChannelData(0);
-
-                for (let i = 0; i < bufferSize; i++) {
-                    let white = Math.random() * 2 - 1;
-                    if (type === 'rain') {
-                        // Pink/Brown noise simulation profile for steady soft rain
-                        output[i] = (white * 0.2); 
-                    } else if (type === 'whitenoise') {
-                        output[i] = white * 0.1;
-                    } else if (type === 'brownnoise') {
-                        // Deep muffled focus hum
-                        output[i] = (i === 0 ? white : (output[i-1] + (0.02 * white))) * 0.5;
+                    // Resume context if browser suspended it due to autoplay restrictions
+                    if (ctx.state === 'suspended') {
+                        ctx.resume();
                     }
+
+                    audioCtxRef.current = ctx;
+
+                    // Create buffer for noise generation (2 seconds looped)
+                    const bufferSize = ctx.sampleRate * 2;
+                    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                    const output = noiseBuffer.getChannelData(0);
+
+                    for (let i = 0; i < bufferSize; i++) {
+                        let white = Math.random() * 2 - 1;
+                        if (type === 'rain') {
+                            // Pink/Brown noise simulation profile for steady soft rain
+                            output[i] = (white * 0.2); 
+                        } else if (type === 'whitenoise') {
+                            output[i] = white * 0.1;
+                        } else if (type === 'brownnoise') {
+                            // Deep muffled focus hum
+                            output[i] = (i === 0 ? white : (output[i-1] + (0.02 * white))) * 0.5;
+                        }
+                    }
+
+                    const whiteNoise = ctx.createBufferSource();
+                    whiteNoise.buffer = noiseBuffer;
+                    whiteNoise.loop = true;
+
+                    // Filter setup for ambiance tone adjustment
+                    const filter = ctx.createBiquadFilter();
+                    if (type === 'rain') {
+                        filter.type = 'lowpass';
+                        filter.frequency.value = 1000; // Soft rain muffling
+                    } else if (type === 'brownnoise') {
+                        filter.type = 'lowpass';
+                        filter.frequency.value = 350;
+                    } else {
+                        filter.type = 'bandpass';
+                        filter.frequency.value = 1500;
+                    }
+
+                    const gainNode = ctx.createGain();
+                    gainNode.gain.value = 0.2; // Safe ambient background volume
+                    gainNodeRef.current = gainNode;
+
+                    whiteNoise.connect(filter);
+                    filter.connect(gainNode);
+                    gainNode.connect(ctx.destination);
+
+                    whiteNoise.start(0);
+                    noiseNodeRef.current = whiteNoise;
+                    setActiveSound(type);
+                } catch (err) {
+                    console.error("Audio playback error:", err);
+                    alert("Audio playback failed. Please click the sound button again.");
                 }
-
-                const whiteNoise = ctx.createBufferSource();
-                whiteNoise.buffer = noiseBuffer;
-                whiteNoise.loop = true;
-
-                // Filter setup for ambiance tone adjustment
-                const filter = ctx.createBiquadFilter();
-                if (type === 'rain') {
-                    filter.type = 'lowpass';
-                    filter.frequency.value = 1000; // Soft rain muffling
-                } else if (type === 'brownnoise') {
-                    filter.type = 'lowpass';
-                    filter.frequency.value = 350;
-                } else {
-                    filter.type = 'bandpass';
-                    filter.frequency.value = 1500;
-                }
-
-                const gainNode = ctx.createGain();
-                gainNode.gain.value = 0.15; // Safe ambient background volume
-                gainNodeRef.current = gainNode;
-
-                whiteNoise.connect(filter);
-                filter.connect(gainNode);
-                gainNode.connect(ctx.destination);
-
-                whiteNoise.start(0);
-                noiseNodeRef.current = whiteNoise;
-                setActiveSound(type);
             };
 
             const stopAmbientSound = () => {
