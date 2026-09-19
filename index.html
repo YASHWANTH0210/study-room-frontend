@@ -17,11 +17,69 @@
     <script type="text/babel">
         const socket = io('https://study-room-backend-syn8.onrender.com');
 
+        // Theme Definitions (5 custom themes)
+        const THEMES = {
+            blue: {
+                name: 'Classic Blue',
+                primary: 'bg-blue-600 hover:bg-blue-700 text-white',
+                primaryText: 'text-blue-500',
+                accentBg: 'bg-blue-50 border-blue-200 text-blue-800',
+                darkAccentBg: 'bg-gray-800 border-blue-900 text-blue-300',
+                badge: 'bg-blue-500 text-white',
+                tabActive: 'bg-blue-600 text-white',
+                borderActive: 'border-blue-500',
+            },
+            emerald: {
+                name: 'Emerald Forest',
+                primary: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+                primaryText: 'text-emerald-500',
+                accentBg: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+                darkAccentBg: 'bg-gray-800 border-emerald-900 text-emerald-300',
+                badge: 'bg-emerald-500 text-white',
+                tabActive: 'bg-emerald-600 text-white',
+                borderActive: 'border-emerald-500',
+            },
+            purple: {
+                name: 'Sunset Purple',
+                primary: 'bg-purple-600 hover:bg-purple-700 text-white',
+                primaryText: 'text-purple-500',
+                accentBg: 'bg-purple-50 border-purple-200 text-purple-800',
+                darkAccentBg: 'bg-gray-800 border-purple-900 text-purple-300',
+                badge: 'bg-purple-500 text-white',
+                tabActive: 'bg-purple-600 text-white',
+                borderActive: 'border-purple-500',
+            },
+            midnight: {
+                name: 'Dark Midnight',
+                primary: 'bg-indigo-600 hover:bg-indigo-700 text-white',
+                primaryText: 'text-indigo-400',
+                accentBg: 'bg-slate-800 border-slate-700 text-indigo-300',
+                darkAccentBg: 'bg-slate-800 border-indigo-900 text-indigo-300',
+                badge: 'bg-indigo-600 text-white',
+                tabActive: 'bg-indigo-600 text-white',
+                borderActive: 'border-indigo-500',
+            },
+            latte: {
+                name: 'Warm Latte',
+                primary: 'bg-amber-700 hover:bg-amber-800 text-white',
+                primaryText: 'text-amber-700',
+                accentBg: 'bg-amber-50 border-amber-200 text-amber-900',
+                darkAccentBg: 'bg-gray-800 border-amber-900 text-amber-400',
+                badge: 'bg-amber-700 text-white',
+                tabActive: 'bg-amber-700 text-white',
+                borderActive: 'border-amber-600',
+            }
+        };
+
         function App() {
             // User Profile States
             const [username, setUsername] = React.useState(() => localStorage.getItem('study_username') || '');
             const [userAvatar, setUserAvatar] = React.useState(() => localStorage.getItem('study_avatar') || '🎓');
             const [userStatus, setUserStatus] = React.useState(() => localStorage.getItem('study_status') || 'Student');
+
+            // Theme State (persisted in localStorage)
+            const [currentThemeKey, setCurrentThemeKey] = React.useState(() => localStorage.getItem('study_theme') || 'blue');
+            const theme = THEMES[currentThemeKey] || THEMES.blue;
 
             // Room History State
             const [roomHistory, setRoomHistory] = React.useState(() => {
@@ -47,7 +105,7 @@
             const [activeUsers, setActiveUsers] = React.useState([]);
             const [isMobile, setIsMobile] = React.useState(false);
 
-            // Todo List State (persisted inside room/localStorage context)
+            // Todo List State
             const [todos, setTodos] = React.useState(() => {
                 const saved = localStorage.getItem('study_todos');
                 return saved ? JSON.parse(saved) : [
@@ -57,7 +115,7 @@
             });
             const [newTodoText, setNewTodoText] = React.useState('');
 
-            // Ambient Sound States (Using Web Audio API Noise Nodes with Autoplay fix)
+            // Ambient Sound States
             const [activeSound, setActiveSound] = React.useState('none');
             const audioCtxRef = React.useRef(null);
             const noiseNodeRef = React.useRef(null);
@@ -104,7 +162,11 @@
                 socket.on('clear_board', () => clearCanvasLocally());
             }, [roomCode, roomTopic]);
 
-            // Save Profile changes
+            const changeTheme = (key) => {
+                setCurrentThemeKey(key);
+                localStorage.setItem('study_theme', key);
+            };
+
             const saveProfile = (e) => {
                 e.preventDefault();
                 if (!username.trim()) {
@@ -118,7 +180,6 @@
                 setHomeMode('home');
             };
 
-            // Room History Management
             const saveToRoomHistory = (code, topic) => {
                 const newEntry = { code, topic, date: new Date().toLocaleDateString() };
                 setRoomHistory((prev) => {
@@ -139,7 +200,6 @@
                 setRoomCode(randomCode);
             };
 
-            // Todo List Functions
             const addTodo = (e) => {
                 e.preventDefault();
                 if (!newTodoText.trim()) return;
@@ -161,7 +221,6 @@
                 localStorage.setItem('study_todos', JSON.stringify(updated));
             };
 
-            // Ambient Sound Synthesizer (Web Audio API with Autoplay resume fix)
             const playAmbientSound = (type) => {
                 stopAmbientSound();
                 if (type === 'none') {
@@ -173,14 +232,12 @@
                     const AudioContext = window.AudioContext || window.webkitAudioContext;
                     const ctx = new AudioContext();
 
-                    // Resume context if browser suspended it due to autoplay restrictions
                     if (ctx.state === 'suspended') {
                         ctx.resume();
                     }
 
                     audioCtxRef.current = ctx;
 
-                    // Create buffer for noise generation (2 seconds looped)
                     const bufferSize = ctx.sampleRate * 2;
                     const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
                     const output = noiseBuffer.getChannelData(0);
@@ -188,12 +245,10 @@
                     for (let i = 0; i < bufferSize; i++) {
                         let white = Math.random() * 2 - 1;
                         if (type === 'rain') {
-                            // Pink/Brown noise simulation profile for steady soft rain
                             output[i] = (white * 0.2); 
                         } else if (type === 'whitenoise') {
                             output[i] = white * 0.1;
                         } else if (type === 'brownnoise') {
-                            // Deep muffled focus hum
                             output[i] = (i === 0 ? white : (output[i-1] + (0.02 * white))) * 0.5;
                         }
                     }
@@ -202,11 +257,10 @@
                     whiteNoise.buffer = noiseBuffer;
                     whiteNoise.loop = true;
 
-                    // Filter setup for ambiance tone adjustment
                     const filter = ctx.createBiquadFilter();
                     if (type === 'rain') {
                         filter.type = 'lowpass';
-                        filter.frequency.value = 1000; // Soft rain muffling
+                        filter.frequency.value = 1000;
                     } else if (type === 'brownnoise') {
                         filter.type = 'lowpass';
                         filter.frequency.value = 350;
@@ -216,7 +270,7 @@
                     }
 
                     const gainNode = ctx.createGain();
-                    gainNode.gain.value = 0.2; // Safe ambient background volume
+                    gainNode.gain.value = 0.2;
                     gainNodeRef.current = gainNode;
 
                     whiteNoise.connect(filter);
@@ -244,7 +298,6 @@
                 setActiveSound('none');
             };
 
-            // Whiteboard Drawing Logic
             const getPos = (e) => {
                 const canvas = canvasRef.current;
                 if (!canvas) return { x: 0, y: 0 };
@@ -291,7 +344,6 @@
                 socket.emit('clear_board', roomCode);
             };
 
-            // Voice Chat Logic
             const toggleVoiceChat = async () => {
                 if (!isInVoice) {
                     try {
@@ -433,34 +485,65 @@
             if (!isInRoom) {
                 return (
                     <div className={`flex flex-col items-center justify-center min-h-screen py-6 px-4 ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-                        <div className={`p-6 sm:p-8 rounded-xl shadow-lg text-center w-full max-w-md ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+                        <div className={`p-6 sm:p-8 rounded-2xl shadow-xl text-center w-full max-w-md relative overflow-hidden ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                             
+                            {/* Cute Header Seating Lounge Illustration */}
+                            <div className={`mb-4 p-3 rounded-xl border flex flex-col items-center justify-center relative overflow-hidden ${darkMode ? 'bg-gray-900/60 border-gray-700' : 'bg-gradient-to-b from-indigo-50/80 to-blue-50/30 border-blue-100'}`}>
+                                <div className="flex items-end justify-center gap-3 pt-2 pb-1 relative z-10">
+                                    
+                                    {/* Character 1: Reading Book */}
+                                    <div className="flex flex-col items-center animate-bounce duration-1000">
+                                        <div className="text-2xl filter drop-shadow">🦊</div>
+                                        <div className="w-8 h-3 bg-indigo-200 dark:bg-indigo-900 rounded-full mt-0.5 shadow-inner flex items-center justify-center text-[8px]">📖</div>
+                                    </div>
+
+                                    {/* Character 2: Coding on Laptop (Center) */}
+                                    <div className="flex flex-col items-center transform -translate-y-1">
+                                        <div className="text-3xl filter drop-shadow animate-pulse">🐼</div>
+                                        <div className="w-10 h-3.5 bg-blue-300 dark:bg-blue-800 rounded-md mt-0.5 shadow flex items-center justify-center text-[9px] font-mono font-bold text-white">💻</div>
+                                    </div>
+
+                                    {/* Character 3: Sipping Coffee / Chill */}
+                                    <div className="flex flex-col items-center">
+                                        <div className="text-2xl filter drop-shadow">🐨</div>
+                                        <div className="w-8 h-3 bg-amber-200 dark:bg-amber-900 rounded-full mt-0.5 shadow-inner flex items-center justify-center text-[8px]">☕</div>
+                                    </div>
+
+                                </div>
+                                <span className={`text-[10px] font-bold uppercase tracking-wider mt-1 opacity-75 ${theme.primaryText}`}>✨ Cozy Study Club Lounge ✨</span>
+                            </div>
+
                             <div className="flex justify-between items-center mb-4">
                                 <button 
                                     onClick={() => setHomeMode('profile')}
-                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${darkMode ? 'bg-gray-700 border-gray-600 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
+                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-gray-50 border-gray-200 text-gray-700'}`}>
                                     <span>{userAvatar}</span>
                                     <span className="truncate max-w-[90px]">{username || 'Set Profile'}</span>
                                 </button>
-                                <button onClick={() => setDarkMode(!darkMode)} className="text-xs px-2.5 py-1.5 rounded border border-gray-500 hover:opacity-80">
-                                    {darkMode ? '☀️' : '🌙'}
-                                </button>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setHomeMode('themes')} className={`text-xs px-2.5 py-1.5 rounded border border-gray-500 hover:opacity-80 font-semibold ${darkMode ? 'bg-gray-700 text-white' : 'bg-gray-50'}`}>
+                                        🎨 Themes
+                                    </button>
+                                    <button onClick={() => setDarkMode(!darkMode)} className="text-xs px-2.5 py-1.5 rounded border border-gray-500 hover:opacity-80">
+                                        {darkMode ? '☀️' : '🌙'}
+                                    </button>
+                                </div>
                             </div>
 
-                            <h1 className="text-xl font-extrabold text-blue-500 mb-1">📚 Ultimate Study Room</h1>
+                            <h1 className={`text-xl font-extrabold mb-1 ${theme.primaryText}`}>📚 Ultimate Study Room</h1>
 
                             {errorMessage && (
                                 <div className="mb-3 p-2 bg-red-100 text-red-700 text-xs rounded border border-red-300">{errorMessage}</div>
                             )}
 
                             {homeMode === 'home' && (
-                                <div className="flex flex-col gap-3 py-3">
+                                <div className="flex flex-col gap-3 py-2">
                                     <p className="text-xs text-gray-400 mb-1">Notes, Whiteboard, Voice, Checklist & Ambience synced live.</p>
                                     
-                                    <button onClick={() => setHomeMode('create')} className="bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 shadow text-sm">
+                                    <button onClick={() => setHomeMode('create')} className={`${theme.primary} p-3 rounded-xl font-bold shadow text-sm transition-all transform hover:scale-[1.02]`}>
                                         ✨ Create a New Room
                                     </button>
-                                    <button onClick={() => setHomeMode('join')} className={`p-3 rounded-lg font-bold border text-sm ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-50'}`}>
+                                    <button onClick={() => setHomeMode('join')} className={`p-3 rounded-xl font-bold border text-sm transition-all hover:scale-[1.02] ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-50'}`}>
                                         🚪 Join Existing Room
                                     </button>
 
@@ -475,9 +558,9 @@
                                                     <div 
                                                         key={idx}
                                                         onClick={() => { setRoomCode(item.code); enterRoomAction(item.code); }}
-                                                        className={`p-2 rounded border text-xs flex justify-between items-center cursor-pointer ${darkMode ? 'bg-gray-700 border-gray-600 hover:bg-gray-600' : 'bg-gray-50 border-gray-200 hover:bg-blue-50'}`}>
+                                                        className={`p-2 rounded-lg border text-xs flex justify-between items-center cursor-pointer transition-all hover:translate-x-0.5 ${darkMode ? 'bg-gray-700 border-gray-600 hover:bg-gray-600' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}>
                                                         <div>
-                                                            <span className="font-mono font-bold text-blue-500 mr-2">{item.code}</span>
+                                                            <span className={`font-mono font-bold mr-2 ${theme.primaryText}`}>{item.code}</span>
                                                             <span className="text-gray-300 truncate max-w-[130px] inline-block align-bottom">{item.topic}</span>
                                                         </div>
                                                         <span className="text-[10px] text-gray-400 font-semibold">Rejoin →</span>
@@ -488,47 +571,73 @@
                                     )}
 
                                     <div className="flex justify-center gap-4 mt-2">
-                                        <button onClick={() => setHomeMode('profile')} className="text-xs p-1 rounded font-semibold underline text-gray-400 hover:text-blue-500">
+                                        <button onClick={() => setHomeMode('profile')} className="text-xs p-1 rounded font-semibold underline text-gray-400 hover:opacity-80">
                                             ✏️ Edit Profile
                                         </button>
                                     </div>
                                 </div>
                             )}
 
+                            {homeMode === 'themes' && (
+                                <div className="flex flex-col text-left gap-2.5">
+                                    <h2 className={`text-md font-bold mb-1 ${theme.primaryText}`}>🎨 Customize Theme (5 Styles)</h2>
+                                    <p className="text-xs text-gray-400 mb-2">Select your favorite look for the study app:</p>
+                                    <div className="flex flex-col gap-2">
+                                        {Object.keys(THEMES).map((key) => {
+                                            const t = THEMES[key];
+                                            const isSelected = currentThemeKey === key;
+                                            return (
+                                                <button 
+                                                    key={key} 
+                                                    onClick={() => changeTheme(key)}
+                                                    className={`p-3 rounded-xl border text-xs font-bold flex justify-between items-center transition-all ${isSelected ? (darkMode ? 'bg-gray-700 border-blue-400 ring-2 ring-blue-500' : 'bg-blue-50 border-blue-500 ring-2 ring-blue-400') : (darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200')}`}
+                                                >
+                                                    <span className={darkMode ? 'text-white' : 'text-gray-800'}>{t.name}</span>
+                                                    <span className={`px-2 py-1 rounded text-[10px] ${t.badge}`}>{isSelected ? 'Active ✓' : 'Select'}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="flex gap-2 mt-4">
+                                        <button onClick={() => setHomeMode('home')} className={`px-4 py-2 rounded-xl text-sm font-semibold border w-full ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>Done</button>
+                                    </div>
+                                </div>
+                            )}
+
                             {homeMode === 'profile' && (
                                 <form onSubmit={saveProfile} className="flex flex-col text-left gap-3">
-                                    <h2 className="text-md font-bold text-blue-400 mb-1">👤 Edit Your Profile</h2>
+                                    <h2 className={`text-md font-bold mb-1 ${theme.primaryText}`}>👤 Edit Your Profile</h2>
                                     <label className="text-xs text-gray-400 font-semibold">Choose Avatar Emoji:</label>
                                     <div className="flex gap-2 text-xl">
                                         {['🎓', '💻', '📚', '⚡', '🦉', '🚀', '🧠'].map((emoji) => (
-                                            <button type="button" key={emoji} onClick={() => setUserAvatar(emoji)} className={`p-1.5 rounded border ${userAvatar === emoji ? 'bg-blue-500 border-blue-600 scale-110' : darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                                            <button type="button" key={emoji} onClick={() => setUserAvatar(emoji)} className={`p-1.5 rounded-lg border ${userAvatar === emoji ? `${theme.badge} scale-110` : darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
                                                 {emoji}
                                             </button>
                                         ))}
                                     </div>
                                     <label className="text-xs text-gray-400 font-semibold">Your Name:</label>
-                                    <input type="text" placeholder="e.g. Alex..." className={`border p-2 rounded text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`} value={username} onChange={(e) => setUsername(e.target.value)} />
+                                    <input type="text" placeholder="e.g. Alex..." className={`border p-2.5 rounded-xl text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`} value={username} onChange={(e) => setUsername(e.target.value)} />
                                     <label className="text-xs text-gray-400 font-semibold">Study Status / Role:</label>
-                                    <input type="text" placeholder="e.g. Exam Prep..." className={`border p-2 rounded text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`} value={userStatus} onChange={(e) => setUserStatus(e.target.value)} />
+                                    <input type="text" placeholder="e.g. Exam Prep..." className={`border p-2.5 rounded-xl text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`} value={userStatus} onChange={(e) => setUserStatus(e.target.value)} />
                                     <div className="flex gap-2 mt-4">
-                                        <button type="button" onClick={() => setHomeMode('home')} className={`px-4 py-2 rounded text-sm font-semibold border ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>Back</button>
-                                        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold flex-1 hover:bg-blue-700">Save Profile</button>
+                                        <button type="button" onClick={() => setHomeMode('home')} className={`px-4 py-2 rounded-xl text-sm font-semibold border ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>Back</button>
+                                        <button type="submit" className={`${theme.primary} px-4 py-2 rounded-xl text-sm font-bold flex-1`}>Save Profile</button>
                                     </div>
                                 </form>
                             )}
 
                             {homeMode === 'create' && (
                                 <div className="flex flex-col text-left gap-2.5 max-h-[70vh] overflow-y-auto pr-1">
-                                    <h2 className="text-md font-bold text-blue-400 mb-1">✨ Create a New Study Room</h2>
+                                    <h2 className={`text-md font-bold mb-1 ${theme.primaryText}`}>✨ Create a New Study Room</h2>
                                     <label className="text-xs text-gray-400 font-semibold">Room Code:</label>
                                     <div className="flex gap-2">
-                                        <input type="text" placeholder="Click generate ->" className={`border p-2 rounded text-sm flex-1 font-mono ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`} value={roomCode} onChange={(e) => setRoomCode(e.target.value)} />
-                                        <button onClick={generateRoomCode} className="bg-purple-600 text-white px-3 py-2 rounded text-xs font-bold hover:bg-purple-700">Generate</button>
+                                        <input type="text" placeholder="Click generate ->" className={`border p-2.5 rounded-xl text-sm flex-1 font-mono ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`} value={roomCode} onChange={(e) => setRoomCode(e.target.value)} />
+                                        <button onClick={generateRoomCode} className="bg-purple-600 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-purple-700">Generate</button>
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
                                         <div>
                                             <label className="text-xs text-gray-400 font-semibold block mb-1">Duration:</label>
-                                            <select value={roomDuration} onChange={(e) => setRoomDuration(e.target.value)} className={`border p-2 rounded text-sm w-full ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}>
+                                            <select value={roomDuration} onChange={(e) => setRoomDuration(e.target.value)} className={`border p-2.5 rounded-xl text-sm w-full ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}>
                                                 <option value="30">30 Mins</option>
                                                 <option value="60">1 Hour</option>
                                                 <option value="90">1.5 Hours</option>
@@ -537,28 +646,28 @@
                                         </div>
                                         <div>
                                             <label className="text-xs text-gray-400 font-semibold block mb-1">Password:</label>
-                                            <input type="password" placeholder="Optional..." className={`border p-2 rounded text-sm w-full ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`} value={roomPassword} onChange={(e) => setRoomPassword(e.target.value)} />
+                                            <input type="password" placeholder="Optional..." className={`border p-2.5 rounded-xl text-sm w-full ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`} value={roomPassword} onChange={(e) => setRoomPassword(e.target.value)} />
                                         </div>
                                     </div>
                                     <label className="text-xs text-gray-400 font-semibold">Study Topic / Subject:</label>
-                                    <input type="text" placeholder="e.g. Physics Core..." className={`border p-2 rounded text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`} value={roomTopic} onChange={(e) => setRoomTopic(e.target.value)} />
+                                    <input type="text" placeholder="e.g. Physics Core..." className={`border p-2.5 rounded-xl text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`} value={roomTopic} onChange={(e) => setRoomTopic(e.target.value)} />
                                     <div className="flex gap-2 mt-3">
-                                        <button onClick={() => setHomeMode('home')} className={`px-4 py-2 rounded text-sm font-semibold border ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>Back</button>
-                                        <button onClick={() => enterRoomAction(roomCode)} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold flex-1 hover:bg-blue-700">Enter Room</button>
+                                        <button onClick={() => setHomeMode('home')} className={`px-4 py-2 rounded-xl text-sm font-semibold border ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>Back</button>
+                                        <button onClick={() => enterRoomAction(roomCode)} className={`${theme.primary} px-4 py-2 rounded-xl text-sm font-bold flex-1`}>Enter Room</button>
                                     </div>
                                 </div>
                             )}
 
                             {homeMode === 'join' && (
                                 <div className="flex flex-col text-left gap-3">
-                                    <h2 className="text-md font-bold text-blue-400 mb-1">🚪 Join an Existing Room</h2>
+                                    <h2 className={`text-md font-bold mb-1 ${theme.primaryText}`}>🚪 Join an Existing Room</h2>
                                     <label className="text-xs text-gray-400 font-semibold">Room Code:</label>
-                                    <input type="text" placeholder="Enter 6-digit room code..." className={`border p-2.5 rounded text-sm font-mono ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`} value={roomCode} onChange={(e) => setRoomCode(e.target.value)} />
+                                    <input type="text" placeholder="Enter 6-digit room code..." className={`border p-2.5 rounded-xl text-sm font-mono ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`} value={roomCode} onChange={(e) => setRoomCode(e.target.value)} />
                                     <label className="text-xs text-gray-400 font-semibold">Room Password (If required):</label>
-                                    <input type="password" placeholder="Room password..." className={`border p-2.5 rounded text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`} value={roomPassword} onChange={(e) => setRoomPassword(e.target.value)} />
+                                    <input type="password" placeholder="Room password..." className={`border p-2.5 rounded-xl text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`} value={roomPassword} onChange={(e) => setRoomPassword(e.target.value)} />
                                     <div className="flex gap-2 mt-4">
-                                        <button onClick={() => setHomeMode('home')} className={`px-4 py-2 rounded text-sm font-semibold border ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>Back</button>
-                                        <button onClick={() => enterRoomAction(roomCode)} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold flex-1 hover:bg-blue-700">Join Room</button>
+                                        <button onClick={() => setHomeMode('home')} className={`px-4 py-2 rounded-xl text-sm font-semibold border ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>Back</button>
+                                        <button onClick={() => enterRoomAction(roomCode)} className={`${theme.primary} px-4 py-2 rounded-xl text-sm font-bold flex-1`}>Join Room</button>
                                     </div>
                                 </div>
                             )}
@@ -576,7 +685,7 @@
                     <div className={`flex justify-between items-center px-4 py-2.5 border-b shadow-sm shrink-0 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                         <div className="flex items-center gap-3">
                             <div>
-                                <h1 className="font-bold text-xs sm:text-sm text-blue-500 truncate max-w-[180px]">Room: {roomCode} {roomTopic ? `(${roomTopic})` : ''}</h1>
+                                <h1 className={`font-bold text-xs sm:text-sm truncate max-w-[180px] ${theme.primaryText}`}>Room: {roomCode} {roomTopic ? `(${roomTopic})` : ''}</h1>
                                 <p className="text-[10px] text-gray-400">👤 {userAvatar} {username}</p>
                             </div>
                             <button onClick={() => window.location.reload()} className="bg-red-500/10 text-red-500 border border-red-300 text-[10px] px-2 py-1 rounded font-semibold hover:bg-red-500 hover:text-white transition-all">
@@ -586,23 +695,28 @@
 
                         {/* Desktop Section Tabs */}
                         <div className="hidden sm:flex gap-2">
-                            <button onClick={() => setActiveSection('workspace')} className={`px-3 py-1 rounded text-xs font-bold ${activeSection === 'workspace' ? 'bg-blue-600 text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
+                            <button onClick={() => setActiveSection('workspace')} className={`px-3 py-1 rounded text-xs font-bold ${activeSection === 'workspace' ? theme.tabActive : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
                                 🖥️ Workspace
                             </button>
-                            <button onClick={() => setActiveSection('chat')} className={`px-3 py-1 rounded text-xs font-bold ${activeSection === 'chat' ? 'bg-blue-600 text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
+                            <button onClick={() => setActiveSection('chat')} className={`px-3 py-1 rounded text-xs font-bold ${activeSection === 'chat' ? theme.tabActive : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
                                 💬 Chat ({activeUsers.length})
                             </button>
-                            <button onClick={() => setActiveSection('todos')} className={`px-3 py-1 rounded text-xs font-bold ${activeSection === 'todos' ? 'bg-blue-600 text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
+                            <button onClick={() => setActiveSection('todos')} className={`px-3 py-1 rounded text-xs font-bold ${activeSection === 'todos' ? theme.tabActive : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
                                 ✅ Checklist
                             </button>
-                            <button onClick={() => setActiveSection('tools')} className={`px-3 py-1 rounded text-xs font-bold ${activeSection === 'tools' ? 'bg-blue-600 text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
+                            <button onClick={() => setActiveSection('tools')} className={`px-3 py-1 rounded text-xs font-bold ${activeSection === 'tools' ? theme.tabActive : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
                                 🛠️ Audio & Timer
                             </button>
                         </div>
 
-                        <button onClick={() => setDarkMode(!darkMode)} className="text-xs px-2 py-1 rounded border border-gray-500 hover:opacity-80">
-                            {darkMode ? '☀️' : '🌙'}
-                        </button>
+                        <div className="flex gap-2">
+                            <select value={currentThemeKey} onChange={(e) => changeTheme(e.target.value)} className={`text-xs px-2 py-1 rounded border font-semibold ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}>
+                                {Object.keys(THEMES).map(k => <option key={k} value={k}>{THEMES[k].name}</option>)}
+                            </select>
+                            <button onClick={() => setDarkMode(!darkMode)} className="text-xs px-2 py-1 rounded border border-gray-500 hover:opacity-80">
+                                {darkMode ? '☀️' : '🌙'}
+                            </button>
+                        </div>
                     </div>
 
                     {/* Content Section Panels */}
@@ -613,10 +727,10 @@
                             <div className="flex-1 flex flex-col gap-2 h-full">
                                 <div className="flex justify-between items-center shrink-0">
                                     <div className="flex gap-2">
-                                        <button onClick={() => setWorkspaceTab('notes')} className={`px-3 py-1 text-xs font-bold rounded ${workspaceTab === 'notes' ? 'bg-blue-500 text-white' : darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-200 text-gray-700'}`}>
+                                        <button onClick={() => setWorkspaceTab('notes')} className={`px-3 py-1 text-xs font-bold rounded ${workspaceTab === 'notes' ? theme.tabActive : darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-200 text-gray-700'}`}>
                                             📝 Notes
                                         </button>
-                                        <button onClick={() => setWorkspaceTab('whiteboard')} className={`px-3 py-1 text-xs font-bold rounded ${workspaceTab === 'whiteboard' ? 'bg-blue-500 text-white' : darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-200 text-gray-700'}`}>
+                                        <button onClick={() => setWorkspaceTab('whiteboard')} className={`px-3 py-1 text-xs font-bold rounded ${workspaceTab === 'whiteboard' ? theme.tabActive : darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-200 text-gray-700'}`}>
                                             🎨 Whiteboard
                                         </button>
                                     </div>
@@ -666,17 +780,17 @@
                         {/* 2. CHAT & MEMBERS */}
                         {activeSection === 'chat' && (
                             <div className={`flex-1 flex flex-col p-3 rounded-lg shadow-sm h-full max-w-2xl mx-auto w-full ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                                <div className={`mb-2 p-2 rounded border text-[11px] shrink-0 ${darkMode ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-blue-50 border-blue-100 text-blue-800'}`}>
+                                <div className={`mb-2 p-2 rounded border text-[11px] shrink-0 ${darkMode ? theme.darkAccentBg : theme.accentBg}`}>
                                     <span className="font-bold">Online ({activeUsers.length}): </span>
                                     {activeUsers.map((u) => (
-                                        <span key={u.id} className="inline-block bg-blue-500 text-white px-2 py-0.5 rounded-full text-[10px] mr-1 my-0.5">{u.username}</span>
+                                        <span key={u.id} className={`inline-block px-2 py-0.5 rounded-full text-[10px] mr-1 my-0.5 ${theme.badge}`}>{u.username}</span>
                                     ))}
                                 </div>
 
                                 <div className={`flex-1 border overflow-y-auto p-2.5 mb-2 rounded ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                                     {chatList.map((item, index) => (
                                         <div key={index} className="mb-2.5 text-xs">
-                                            <span className="font-bold text-blue-400">{item.username}</span> 
+                                            <span className={`font-bold ${theme.primaryText}`}>{item.username}</span> 
                                             <span className="text-[10px] text-gray-400 ml-2">{item.time}</span>
                                             {item.message ? (
                                                 <p className={darkMode ? 'text-gray-200 mt-0.5' : 'text-gray-700 mt-0.5'}>{item.message}</p>
@@ -685,10 +799,10 @@
                                                     {item.fileType && item.fileType.startsWith('image/') ? (
                                                         <div>
                                                             <img src={item.fileUrl} alt={item.fileName} className="max-w-[160px] rounded border my-1 shadow-sm" />
-                                                            <a href={item.fileUrl} download={item.fileName} className="text-blue-400 underline text-[10px] block">Download {item.fileName}</a>
+                                                            <a href={item.fileUrl} download={item.fileName} className={`underline text-[10px] block ${theme.primaryText}`}>Download {item.fileName}</a>
                                                         </div>
                                                     ) : (
-                                                        <a href={item.fileUrl} download={item.fileName} className="text-blue-500 underline font-semibold flex items-center gap-1">📎 {item.fileName}</a>
+                                                        <a href={item.fileUrl} download={item.fileName} className={`underline font-semibold flex items-center gap-1 ${theme.primaryText}`}>📎 {item.fileName}</a>
                                                     )}
                                                 </div>
                                             )}
@@ -699,10 +813,10 @@
                                 <form onSubmit={sendMessage} className="flex flex-col gap-1.5 shrink-0">
                                     <div className="flex gap-1.5">
                                         <input type="text" value={message} placeholder="Type message..." className={`border flex-1 p-2 rounded text-xs ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`} onChange={(e) => setMessage(e.target.value)} />
-                                        <button type="submit" className="bg-blue-500 text-white px-3 py-2 rounded text-xs font-bold">Send</button>
+                                        <button type="submit" className={`${theme.primary} px-3 py-2 rounded text-xs font-bold`}>Send</button>
                                     </div>
                                     <div className="flex items-center gap-1">
-                                        <input type="file" onChange={handleFileUpload} className="text-[10px] text-gray-400 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[10px] file:font-semibold file:bg-blue-50 file:text-blue-700" />
+                                        <input type="file" onChange={handleFileUpload} className="text-[10px] text-gray-400 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[10px] file:font-semibold file:bg-gray-100 file:text-gray-700" />
                                     </div>
                                 </form>
                             </div>
@@ -711,7 +825,7 @@
                         {/* 3. TODO CHECKLIST SECTION */}
                         {activeSection === 'todos' && (
                             <div className={`flex-1 flex flex-col p-4 rounded-lg shadow-sm max-w-xl mx-auto w-full ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-                                <h3 className="font-bold text-sm mb-1 text-blue-400">✅ Session Study Checklist</h3>
+                                <h3 className={`font-bold text-sm mb-1 ${theme.primaryText}`}>✅ Session Study Checklist</h3>
                                 <p className="text-[11px] text-gray-400 mb-3">Tasks save automatically to your browser storage.</p>
                                 
                                 <form onSubmit={addTodo} className="flex gap-2 mb-3">
@@ -722,7 +836,7 @@
                                         placeholder="Add a new task..." 
                                         className={`border flex-1 p-2 rounded text-xs ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white'}`}
                                     />
-                                    <button type="submit" className="bg-blue-600 text-white px-3 py-2 rounded text-xs font-bold">Add</button>
+                                    <button type="submit" className={`${theme.primary} px-3 py-2 rounded text-xs font-bold`}>Add</button>
                                 </form>
 
                                 <div className="flex-1 overflow-y-auto flex flex-col gap-2">
@@ -733,7 +847,7 @@
                                                     type="checkbox" 
                                                     checked={todo.done} 
                                                     onChange={() => toggleTodo(todo.id)} 
-                                                    className="w-4 h-4 accent-blue-600 cursor-pointer"
+                                                    className="w-4 h-4 accent-indigo-600 cursor-pointer"
                                                 />
                                                 <span className={`${todo.done ? 'line-through text-gray-400' : darkMode ? 'text-gray-200' : 'text-gray-800'}`}>
                                                     {todo.text}
@@ -768,17 +882,17 @@
                                 </div>
 
                                 {/* Ambient Sound Generator Card */}
-                                <div className={`p-4 rounded-lg shadow-sm border ${darkMode ? 'bg-gray-800 border-blue-900' : 'bg-blue-50 border-blue-200'}`}>
-                                    <h3 className={`font-bold text-sm mb-1 ${darkMode ? 'text-blue-300' : 'text-blue-800'}`}>🎧 Ambient Background Sounds</h3>
+                                <div className={`p-4 rounded-lg shadow-sm border ${darkMode ? 'bg-gray-800 border-opacity-50' : 'bg-gray-50 border-gray-200'}`}>
+                                    <h3 className={`font-bold text-sm mb-1 ${theme.primaryText}`}>🎧 Ambient Background Sounds</h3>
                                     <p className="text-[11px] text-gray-400 mb-3">Synthesizes calm concentration sounds inside your browser.</p>
                                     <div className="flex flex-wrap gap-2">
-                                        <button onClick={() => playAmbientSound('rain')} className={`px-3 py-1.5 rounded text-xs font-bold ${activeSound === 'rain' ? 'bg-blue-600 text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-white border text-gray-700'}`}>
+                                        <button onClick={() => playAmbientSound('rain')} className={`px-3 py-1.5 rounded text-xs font-bold ${activeSound === 'rain' ? theme.tabActive : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-white border text-gray-700'}`}>
                                             🌧️ Soft Rain
                                         </button>
-                                        <button onClick={() => playAmbientSound('brownnoise')} className={`px-3 py-1.5 rounded text-xs font-bold ${activeSound === 'brownnoise' ? 'bg-blue-600 text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-white border text-gray-700'}`}>
+                                        <button onClick={() => playAmbientSound('brownnoise')} className={`px-3 py-1.5 rounded text-xs font-bold ${activeSound === 'brownnoise' ? theme.tabActive : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-white border text-gray-700'}`}>
                                             ☕ Deep Focus Hum
                                         </button>
-                                        <button onClick={() => playAmbientSound('whitenoise')} className={`px-3 py-1.5 rounded text-xs font-bold ${activeSound === 'whitenoise' ? 'bg-blue-600 text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-white border text-gray-700'}`}>
+                                        <button onClick={() => playAmbientSound('whitenoise')} className={`px-3 py-1.5 rounded text-xs font-bold ${activeSound === 'whitenoise' ? theme.tabActive : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-white border text-gray-700'}`}>
                                             🌊 White Noise
                                         </button>
                                         {activeSound !== 'none' && (
@@ -793,7 +907,7 @@
                                 <div className={`p-4 rounded-lg shadow-sm flex items-center justify-between ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
                                     <div>
                                         <h3 className={`font-bold text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>⏱️ Study Timer</h3>
-                                        <div className="text-3xl font-extrabold text-blue-400 mt-1">{formatTime(timeLeft)}</div>
+                                        <div className={`text-3xl font-extrabold mt-1 ${theme.primaryText}`}>{formatTime(timeLeft)}</div>
                                     </div>
                                     <div className="flex gap-1.5">
                                         <button onClick={() => socket.emit('start_timer', roomCode)} className="bg-green-600 text-white px-2.5 py-1.5 rounded text-xs font-bold">Start</button>
@@ -809,16 +923,16 @@
 
                     {/* Mobile Navigation Footer Bar */}
                     <div className={`sm:hidden fixed bottom-0 left-0 right-0 h-16 border-t flex justify-around items-center px-1 z-50 shadow-lg ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                        <button onClick={() => setActiveSection('workspace')} className={`flex flex-col items-center justify-center flex-1 py-1 text-[10px] font-bold ${activeSection === 'workspace' ? 'text-blue-500' : darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        <button onClick={() => setActiveSection('workspace')} className={`flex flex-col items-center justify-center flex-1 py-1 text-[10px] font-bold ${activeSection === 'workspace' ? theme.primaryText : darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                             <span className="text-base">🖥️</span><span>Workspace</span>
                         </button>
-                        <button onClick={() => setActiveSection('chat')} className={`flex flex-col items-center justify-center flex-1 py-1 text-[10px] font-bold ${activeSection === 'chat' ? 'text-blue-500' : darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        <button onClick={() => setActiveSection('chat')} className={`flex flex-col items-center justify-center flex-1 py-1 text-[10px] font-bold ${activeSection === 'chat' ? theme.primaryText : darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                             <span className="text-base">💬</span><span>Chat</span>
                         </button>
-                        <button onClick={() => setActiveSection('todos')} className={`flex flex-col items-center justify-center flex-1 py-1 text-[10px] font-bold ${activeSection === 'todos' ? 'text-blue-500' : darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        <button onClick={() => setActiveSection('todos')} className={`flex flex-col items-center justify-center flex-1 py-1 text-[10px] font-bold ${activeSection === 'todos' ? theme.primaryText : darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                             <span className="text-base">✅</span><span>Tasks</span>
                         </button>
-                        <button onClick={() => setActiveSection('tools')} className={`flex flex-col items-center justify-center flex-1 py-1 text-[10px] font-bold ${activeSection === 'tools' ? 'text-blue-500' : darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        <button onClick={() => setActiveSection('tools')} className={`flex flex-col items-center justify-center flex-1 py-1 text-[10px] font-bold ${activeSection === 'tools' ? theme.primaryText : darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                             <span className="text-base">🛠️</span><span>Tools</span>
                         </button>
                     </div>
