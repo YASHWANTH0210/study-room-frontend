@@ -23,6 +23,12 @@
             const [userAvatar, setUserAvatar] = React.useState(() => localStorage.getItem('study_avatar') || '🎓');
             const [userStatus, setUserStatus] = React.useState(() => localStorage.getItem('study_status') || 'Student');
 
+            // Room History State (persisted with localStorage)
+            const [roomHistory, setRoomHistory] = React.useState(() => {
+                const saved = localStorage.getItem('study_room_history');
+                return saved ? JSON.parse(saved) : [];
+            });
+
             const [roomCode, setRoomCode] = React.useState('');
             const [roomPassword, setRoomPassword] = React.useState('');
             
@@ -34,7 +40,7 @@
             const [errorMessage, setErrorMessage] = React.useState('');
             const [isInRoom, setIsInRoom] = React.useState(false);
             
-            // Home page modes: 'home', 'join', 'create', 'profile'
+            // Home page modes: 'home', 'join', 'create', 'profile', 'history'
             const [homeMode, setHomeMode] = React.useState('home');
 
             const [message, setMessage] = React.useState('');
@@ -104,6 +110,7 @@
                 socket.on('auth_success', () => {
                     setIsInRoom(true);
                     setErrorMessage('');
+                    saveToRoomHistory(roomCode, roomTopic || 'General Study');
                 });
 
                 socket.on('auth_error', (msg) => {
@@ -117,7 +124,7 @@
                 socket.on('clear_board', () => {
                     clearCanvasLocally();
                 });
-            }, []);
+            }, [roomCode, roomTopic]);
 
             // Save Profile changes
             const saveProfile = (e) => {
@@ -131,6 +138,23 @@
                 localStorage.setItem('study_status', userStatus);
                 setErrorMessage('');
                 setHomeMode('home');
+            };
+
+            // Save Room to History
+            const saveToRoomHistory = (code, topic) => {
+                const newEntry = { code, topic, date: new Date().toLocaleDateString() };
+                setRoomHistory((prev) => {
+                    // Filter out duplicate code entries and keep latest 5
+                    const filtered = prev.filter(item => item.code !== code);
+                    const updated = [newEntry, ...filtered].slice(0, 5);
+                    localStorage.setItem('study_room_history', JSON.stringify(updated));
+                    return updated;
+                });
+            };
+
+            const clearHistory = () => {
+                localStorage.removeItem('study_room_history');
+                setRoomHistory([]);
             };
 
             const generateRoomCode = () => {
@@ -406,16 +430,17 @@
                 }
             };
 
-            const enterRoomAction = () => {
+            const enterRoomAction = (codeToJoin = roomCode) => {
                 if (!username.trim()) {
                     setErrorMessage('Please set up your profile name first.');
                     setHomeMode('profile');
                     return;
                 }
-                if (roomCode !== '') {
+                const targetCode = codeToJoin;
+                if (targetCode !== '') {
                     socket.emit('join_room', { 
                         username: `${userAvatar} ${username} (${userStatus})`, 
-                        roomCode, 
+                        roomCode: targetCode, 
                         password: roomPassword,
                         duration: roomDuration,
                         topic: roomTopic,
@@ -505,7 +530,8 @@
                             {/* MAIN HOME SELECTION VIEW */}
                             {homeMode === 'home' && (
                                 <div className="flex flex-col gap-3 py-3">
-                                    <p className="text-xs text-gray-400 mb-2">Collaborate, share notes, draw, and study together in real-time.</p>
+                                    <p className="text-xs text-gray-400 mb-1">Collaborate, share notes, draw, and study together in real-time.</p>
+                                    
                                     <button 
                                         onClick={() => setHomeMode('create')} 
                                         className="bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 shadow transition-all text-sm">
@@ -516,11 +542,41 @@
                                         className={`p-3 rounded-lg font-bold border text-sm transition-all ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-50'}`}>
                                         🚪 Join Existing Room
                                     </button>
-                                    <button 
-                                        onClick={() => setHomeMode('profile')} 
-                                        className={`text-xs p-2 rounded font-semibold underline text-gray-400 hover:text-blue-500`}>
-                                        ✏️ Edit My Profile
-                                    </button>
+
+                                    {/* Recent Rooms History Section */}
+                                    {roomHistory.length > 0 && (
+                                        <div className="mt-2 text-left">
+                                            <div className="flex justify-between items-center mb-1.5">
+                                                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Recent Rooms</span>
+                                                <button onClick={clearHistory} className="text-[10px] text-red-400 hover:underline">Clear</button>
+                                            </div>
+                                            <div className="flex flex-col gap-1.5 max-h-32 overflow-y-auto pr-1">
+                                                {roomHistory.map((item, idx) => (
+                                                    <div 
+                                                        key={idx}
+                                                        onClick={() => {
+                                                            setRoomCode(item.code);
+                                                            enterRoomAction(item.code);
+                                                        }}
+                                                        className={`p-2 rounded border text-xs flex justify-between items-center cursor-pointer transition-all ${darkMode ? 'bg-gray-700 border-gray-600 hover:bg-gray-600' : 'bg-gray-50 border-gray-200 hover:bg-blue-50'}`}>
+                                                        <div>
+                                                            <span className="font-mono font-bold text-blue-500 mr-2">{item.code}</span>
+                                                            <span className="text-gray-300 truncate max-w-[130px] inline-block align-bottom">{item.topic}</span>
+                                                        </div>
+                                                        <span className="text-[10px] text-gray-400 font-semibold">Rejoin →</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="flex justify-center gap-4 mt-2">
+                                        <button 
+                                            onClick={() => setHomeMode('profile')} 
+                                            className={`text-xs p-1 rounded font-semibold underline text-gray-400 hover:text-blue-500`}>
+                                            ✏️ Edit Profile
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
@@ -648,7 +704,7 @@
                                             Back
                                         </button>
                                         <button 
-                                            onClick={enterRoomAction} 
+                                            onClick={() => enterRoomAction(roomCode)} 
                                             className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold flex-1 hover:bg-blue-700">
                                             Enter Room
                                         </button>
@@ -686,7 +742,7 @@
                                             Back
                                         </button>
                                         <button 
-                                            onClick={enterRoomAction} 
+                                            onClick={() => enterRoomAction(roomCode)} 
                                             className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold flex-1 hover:bg-blue-700">
                                             Join Room
                                         </button>
